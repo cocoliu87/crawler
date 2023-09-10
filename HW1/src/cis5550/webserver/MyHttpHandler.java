@@ -136,6 +136,9 @@ class MyHttpHandler implements HttpHandler {
         headers.add("Server", "hw");
         String size = String.valueOf((long)(htmlResponse.length()));
         headers.add("Content-Length", size);
+        if (statusCode >= 300) {
+            headers.add("Connection", "close");
+        }
         exchange.sendResponseHeaders(statusCode, htmlResponse.length());
         outputStream.write(htmlResponse.getBytes());
         outputStream.flush();
