@@ -97,22 +97,23 @@ class MyHttpHandler implements HttpHandler {
     private void handleResponse(HttpExchange exchange, String requestParamValue, int statusCode) throws IOException {
         OutputStream outputStream = exchange.getResponseBody();
 //        Headers headers = exchange.getResponseHeaders();
-        StringBuilder htmlBuilder = new StringBuilder();
+//        StringBuilder htmlBuilder = new StringBuilder();
+        String htmlResponse = "";
         if (statusCode == 200 && !requestParamValue.isEmpty()) {
-            requestParamValue = new Reader().ReadFileToString(requestParamValue);
+            htmlResponse = new Reader().ReadFileToString(requestParamValue);
         }
-        htmlBuilder
-//                .append("<html>")
-//                .append("<body>")
-//                .append("<h1>")
-                .append(requestParamValue).append(System.lineSeparator());
-//                .append("</h1>")
-//                .append("</body>")
-//                .append("</html>");
-
-
-//        String htmlResponse = StringEscapeUtils.escapeHtml4(htmlBuilder.toString());
-        String htmlResponse = htmlBuilder.toString();
+//        htmlBuilder
+////                .append("<html>")
+////                .append("<body>")
+////                .append("<h1>")
+//                .append(requestParamValue).append(System.lineSeparator());
+////                .append("</h1>")
+////                .append("</body>")
+////                .append("</html>");
+//
+//
+////        String htmlResponse = StringEscapeUtils.escapeHtml4(htmlBuilder.toString());
+//        String htmlResponse = htmlBuilder.toString();
         log.info("Sending response");
 //        String htmlResponse = "Hello world";
         exchange.sendResponseHeaders(statusCode, htmlResponse.length());
