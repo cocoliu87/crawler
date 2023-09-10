@@ -21,6 +21,8 @@ class MyHttpHandler implements HttpHandler {
         customizedPath = path;
     }
 
+    final String IMAGE = "image/jpeg", TEXT = "text/plain", HTML = "text/html", STREAM = "application/octet-stream";
+
     static Logger log = Logger.getLogger(MyHttpHandler.class);
 
     @Override
@@ -46,12 +48,14 @@ class MyHttpHandler implements HttpHandler {
                   statusCode = Integer.parseInt(values[1]);
               }
               case "POST", "PUT" -> {
-                  requestParamValue = "405 Not Allowed";
+//                  requestParamValue = "405 Not Allowed";
+                  requestParamValue = "";
                   statusCode = 405;
               }
 //                requestParamValue = handleGetRequest(exchange);
               default -> {
-                  requestParamValue = "501 Not Implemented";
+//                  requestParamValue = "501 Not Implemented";
+                  requestParamValue = "";
                   statusCode = 501;
               }
           }
@@ -75,10 +79,12 @@ class MyHttpHandler implements HttpHandler {
 
         if (!f.exists() && !f.isDirectory()) {
             statusCode = "404";
-            message = "404 Not Found";
+//            message = "404 Not Found";
+            message = "";
         } else if (!f.canRead()) {
             statusCode = "403";
-            message = "403 Forbidden";
+//            message = "403 Forbidden";
+            message = "";
         }
         return new String[]{message, statusCode};
     }
@@ -96,26 +102,40 @@ class MyHttpHandler implements HttpHandler {
 
     private void handleResponse(HttpExchange exchange, String requestParamValue, int statusCode) throws IOException {
         OutputStream outputStream = exchange.getResponseBody();
-//        Headers headers = exchange.getResponseHeaders();
-//        StringBuilder htmlBuilder = new StringBuilder();
+        Headers headers = exchange.getResponseHeaders();
         String htmlResponse = "";
         if (statusCode == 200 && !requestParamValue.isEmpty()) {
             htmlResponse = new Reader().ReadFileToString(requestParamValue);
         }
-//        htmlBuilder
-////                .append("<html>")
-////                .append("<body>")
-////                .append("<h1>")
-//                .append(requestParamValue).append(System.lineSeparator());
-////                .append("</h1>")
-////                .append("</body>")
-////                .append("</html>");
-//
-//
-////        String htmlResponse = StringEscapeUtils.escapeHtml4(htmlBuilder.toString());
-//        String htmlResponse = htmlBuilder.toString();
+
+
+
         log.info("Sending response");
-//        String htmlResponse = "Hello world";
+//        headers.add("Content-Length", Long.toString(htmlResponse.length()));
+        String[] splitted = requestParamValue.split("\\.");
+        String type = splitted[splitted.length-1];
+        String contentType;
+        switch (type) {
+            case "jpg", "jpeg" -> {
+                contentType = IMAGE;
+                break;
+            }
+            case "text" -> {
+                contentType = TEXT;
+                break;
+            }
+            case "html" -> {
+                contentType = HTML;
+                break;
+            }
+            default -> {
+                contentType = STREAM;
+            }
+        }
+        headers.add("Content-Type", contentType);
+        headers.add("Server", "hw");
+        String size = String.valueOf((long)(htmlResponse.length()));
+        headers.add("Content-Length", size);
         exchange.sendResponseHeaders(statusCode, htmlResponse.length());
         outputStream.write(htmlResponse.getBytes());
         outputStream.flush();
