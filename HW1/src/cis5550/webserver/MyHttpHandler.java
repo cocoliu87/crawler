@@ -1,5 +1,6 @@
 package cis5550.webserver;
 
+import cis5550.filehandler.Reader;
 import cis5550.tools.Logger;
 import com.sun.net.httpserver.Headers;
 import com.sun.net.httpserver.HttpExchange;
@@ -10,6 +11,8 @@ import com.sun.net.httpserver.HttpHandler;
 import java.io.File;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.net.MalformedURLException;
+import java.net.URL;
 import java.util.Objects;
 
 class MyHttpHandler implements HttpHandler {
@@ -66,9 +69,10 @@ class MyHttpHandler implements HttpHandler {
     private String[] handleGetRequest(HttpExchange exchange) {
         // TODO: implementing the HW required GET request process
         log.info("handle GET request");
-        File f = new File(this.customizedPath);
-        String statusCode = "200";
         String message = this.customizedPath + exchange.getRequestURI().toString();
+        File f = new File(message);
+        String statusCode = "200";
+
         if (!f.exists() && !f.isDirectory()) {
             statusCode = "404";
             message = "404 Not Found";
@@ -94,6 +98,9 @@ class MyHttpHandler implements HttpHandler {
         OutputStream outputStream = exchange.getResponseBody();
 //        Headers headers = exchange.getResponseHeaders();
         StringBuilder htmlBuilder = new StringBuilder();
+        if (statusCode == 200 && !requestParamValue.isEmpty()) {
+            requestParamValue = new Reader().ReadFileToString(requestParamValue);
+        }
         htmlBuilder
 //                .append("<html>")
 //                .append("<body>")

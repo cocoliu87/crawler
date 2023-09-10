@@ -20,13 +20,14 @@ public class Server {
             port = Integer.parseInt(args[0]);
             path = args[1];
         } else {
-            System.out.println("Written by Yingqiu Liu");
+            log.info("Written by Yingqiu Liu");
         }
         HttpServer server = HttpServer.create(new InetSocketAddress(port), 0);
         server.createContext("/", new MyHttpHandler(path));
         try {
             // TODO: if seeing degraded performance, considering use newCachedThreadPool() instead.
-            server.setExecutor(Executors.newFixedThreadPool(100));
+//            server.setExecutor(Executors.newFixedThreadPool(100));
+            server.setExecutor(Executors.newCachedThreadPool());
             log.info("Starting HTTP server...");
             server.start();
         } catch (Exception e) {
