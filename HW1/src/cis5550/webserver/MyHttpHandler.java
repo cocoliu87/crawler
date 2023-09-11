@@ -139,19 +139,21 @@ class MyHttpHandler implements HttpHandler {
         headers.add("Content-Type", contentType);
         headers.add("Server", "hw");
 
-        if (statusCode >= 300) {
-            headers.add("Connection", "close");
-        }
-        String size = String.valueOf((long)(bytes.length));
-        headers.add("Content-Length", size);
+//        if (statusCode >= 300) {
+//            headers.add("Connection", "close");
+//        }
+        long size = bytes.length;
+        headers.add("Content-Length", String.valueOf(size));
 
-        exchange.sendResponseHeaders(statusCode, bytes.length);
+//        long offset = size > 0? 0 : 1;
 
-        if (bytes.length > 0) {
-            OutputStream outputStream = exchange.getResponseBody();
+        exchange.sendResponseHeaders(statusCode, size);
+
+        OutputStream outputStream = exchange.getResponseBody();
+        if (size > 0) {
             outputStream.write(bytes);
-            outputStream.flush();
-            outputStream.close();
         }
+        outputStream.flush();
+        outputStream.close();
     }
 }
