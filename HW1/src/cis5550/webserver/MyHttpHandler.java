@@ -106,8 +106,6 @@ class MyHttpHandler implements HttpHandler {
         Headers reqHeaders = exchange.getRequestHeaders();
         List<String> lenStr = reqHeaders.get("Content-Length");
 
-
-        OutputStream outputStream = exchange.getResponseBody();
         Headers headers = exchange.getResponseHeaders();
         String htmlResponse = "";
         if (statusCode == 200 && requestParamValue != null && !requestParamValue.isEmpty()) {
@@ -117,8 +115,7 @@ class MyHttpHandler implements HttpHandler {
 
 
 //        log.info("Sending response");
-//        headers.add("Content-Length", Long.toString(htmlResponse.length()));
-        String[] params = requestParamValue.split("\\.");
+        String[] params = exchange.getRequestURI().toString().split("\\.");
         String type = params[params.length-1];
         String contentType;
         switch (type) {
@@ -141,14 +138,20 @@ class MyHttpHandler implements HttpHandler {
         byte[] bytes = htmlResponse.getBytes();
         headers.add("Content-Type", contentType);
         headers.add("Server", "hw");
-        String size = String.valueOf((long)(bytes.length));
-        headers.add("Content-Length", size);
+
         if (statusCode >= 300) {
             headers.add("Connection", "close");
         }
+        String size = String.valueOf((long)(bytes.length));
+        headers.add("Content-Length", size);
+
         exchange.sendResponseHeaders(statusCode, bytes.length);
-        outputStream.write(bytes);
-        outputStream.flush();
-        outputStream.close();
+
+        if (bytes.length > 0) {
+            OutputStream outputStream = exchange.getResponseBody();
+            outputStream.write(bytes);
+            outputStream.flush();
+            outputStream.close();
+        }
     }
 }
