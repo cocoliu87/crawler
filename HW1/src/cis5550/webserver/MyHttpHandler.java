@@ -13,6 +13,7 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.util.List;
 import java.util.Objects;
 
 class MyHttpHandler implements HttpHandler {
@@ -101,6 +102,11 @@ class MyHttpHandler implements HttpHandler {
     }
 
     private void handleResponse(HttpExchange exchange, String requestParamValue, int statusCode) throws IOException {
+        // handle requested content length
+        Headers reqHeaders = exchange.getRequestHeaders();
+        List<String> lenStr = reqHeaders.get("Content-Length");
+
+
         OutputStream outputStream = exchange.getResponseBody();
         Headers headers = exchange.getResponseHeaders();
         String htmlResponse = "";
@@ -110,10 +116,10 @@ class MyHttpHandler implements HttpHandler {
 
 
 
-        log.info("Sending response");
+//        log.info("Sending response");
 //        headers.add("Content-Length", Long.toString(htmlResponse.length()));
-        String[] splitted = requestParamValue.split("\\.");
-        String type = splitted[splitted.length-1];
+        String[] params = requestParamValue.split("\\.");
+        String type = params[params.length-1];
         String contentType;
         switch (type) {
             case "jpg", "jpeg" -> {
@@ -132,15 +138,16 @@ class MyHttpHandler implements HttpHandler {
                 contentType = STREAM;
             }
         }
+        byte[] bytes = htmlResponse.getBytes();
         headers.add("Content-Type", contentType);
         headers.add("Server", "hw");
-        String size = String.valueOf((long)(htmlResponse.length()));
+        String size = String.valueOf((long)(bytes.length));
         headers.add("Content-Length", size);
         if (statusCode >= 300) {
             headers.add("Connection", "close");
         }
-        exchange.sendResponseHeaders(statusCode, htmlResponse.length());
-        outputStream.write(htmlResponse.getBytes());
+        exchange.sendResponseHeaders(statusCode, bytes.length);
+        outputStream.write(bytes);
         outputStream.flush();
         outputStream.close();
     }
