@@ -11,8 +11,6 @@ import com.sun.net.httpserver.HttpHandler;
 import java.io.File;
 import java.io.IOException;
 import java.io.OutputStream;
-import java.net.MalformedURLException;
-import java.net.URL;
 import java.util.List;
 import java.util.Objects;
 
@@ -107,12 +105,6 @@ class MyHttpHandler implements HttpHandler {
         List<String> lenStr = reqHeaders.get("Content-Length");
 
         Headers headers = exchange.getResponseHeaders();
-        String htmlResponse = "";
-        if (statusCode == 200 && requestParamValue != null && !requestParamValue.isEmpty()) {
-            htmlResponse = new Reader().ReadFileToString(requestParamValue);
-        }
-
-
 
 //        log.info("Sending response");
         String[] params = exchange.getRequestURI().toString().split("\\.");
@@ -135,7 +127,25 @@ class MyHttpHandler implements HttpHandler {
                 contentType = STREAM;
             }
         }
-        byte[] bytes = htmlResponse.getBytes();
+
+        byte[] bytes = new byte[]{};
+        if (statusCode == 200 && requestParamValue != null && !requestParamValue.isEmpty()) {
+            switch (type) {
+                case "jpg", "jpeg" -> {
+                    bytes = new Reader().ReadImageFile(requestParamValue);
+                    break;
+                }
+                case "txt", "html" -> {
+                    bytes = new Reader().ReadTxtFile(requestParamValue);
+                    break;
+                }
+                default -> {
+                    bytes = new Reader().ReadBinaryFile(requestParamValue);
+                }
+            }
+
+        }
+
         headers.add("Content-Type", contentType);
         headers.add("Server", "hw");
 
@@ -145,14 +155,10 @@ class MyHttpHandler implements HttpHandler {
         long size = bytes.length;
         headers.add("Content-Length", String.valueOf(size));
 
-//        long offset = size > 0? 0 : 1;
-
         exchange.sendResponseHeaders(statusCode, size);
 
         OutputStream outputStream = exchange.getResponseBody();
-        if (size > 0) {
-            outputStream.write(bytes);
-        }
+        outputStream.write(bytes);
         outputStream.flush();
         outputStream.close();
     }
