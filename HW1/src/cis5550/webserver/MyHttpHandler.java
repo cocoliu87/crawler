@@ -28,13 +28,13 @@ class MyHttpHandler implements HttpHandler {
 
     @Override
     public void handle(HttpExchange exchange) throws IOException {
-        String requestParamValue;
+        String requestParamValue = "";
         int statusCode;
         if (exchange.getRequestHeaders() == null) {
-            requestParamValue = "400 Bad Request";
+//            requestParamValue = "400 Bad Request";
             statusCode = 400;
         } else if (!Objects.equals(exchange.getProtocol(), "HTTP/1.1")) {
-            requestParamValue = "505 HTTP Version Not Supported";
+//            requestParamValue = "505 HTTP Version Not Supported";
             statusCode = 505;
         } else {
           switch (exchange.getRequestMethod()) {
@@ -50,13 +50,13 @@ class MyHttpHandler implements HttpHandler {
               }
               case "POST", "PUT" -> {
 //                  requestParamValue = "405 Not Allowed";
-                  requestParamValue = "";
+//                  requestParamValue = "";
                   statusCode = 405;
               }
 //                requestParamValue = handleGetRequest(exchange);
               default -> {
 //                  requestParamValue = "501 Not Implemented";
-                  requestParamValue = "";
+//                  requestParamValue = "";
                   statusCode = 501;
               }
           }
@@ -110,7 +110,7 @@ class MyHttpHandler implements HttpHandler {
         OutputStream outputStream = exchange.getResponseBody();
         Headers headers = exchange.getResponseHeaders();
         String htmlResponse = "";
-        if (statusCode == 200 && !requestParamValue.isEmpty()) {
+        if (statusCode == 200 && requestParamValue != null && !requestParamValue.isEmpty()) {
             htmlResponse = new Reader().ReadFileToString(requestParamValue);
         }
 
@@ -126,7 +126,7 @@ class MyHttpHandler implements HttpHandler {
                 contentType = IMAGE;
                 break;
             }
-            case "text" -> {
+            case "txt" -> {
                 contentType = TEXT;
                 break;
             }
