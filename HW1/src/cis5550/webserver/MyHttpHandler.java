@@ -29,10 +29,10 @@ class MyHttpHandler implements HttpHandler {
         String requestParamValue = "";
         int statusCode;
         if (exchange.getRequestHeaders() == null) {
-//            requestParamValue = "400 Bad Request";
+            requestParamValue = "400 Bad Request";
             statusCode = 400;
         } else if (!Objects.equals(exchange.getProtocol(), "HTTP/1.1")) {
-//            requestParamValue = "505 HTTP Version Not Supported";
+            requestParamValue = "505 HTTP Version Not Supported";
             statusCode = 505;
         } else {
           switch (exchange.getRequestMethod()) {
@@ -47,13 +47,13 @@ class MyHttpHandler implements HttpHandler {
                   statusCode = Integer.parseInt(values[1]);
               }
               case "POST", "PUT" -> {
-//                  requestParamValue = "405 Not Allowed";
+                  requestParamValue = "405 Not Allowed";
 //                  requestParamValue = "";
                   statusCode = 405;
               }
 //                requestParamValue = handleGetRequest(exchange);
               default -> {
-//                  requestParamValue = "501 Not Implemented";
+                  requestParamValue = "501 Not Implemented";
 //                  requestParamValue = "";
                   statusCode = 501;
               }
@@ -78,12 +78,12 @@ class MyHttpHandler implements HttpHandler {
 
         if (!f.exists() && !f.isDirectory()) {
             statusCode = "404";
-//            message = "404 Not Found";
-            message = "";
+            message = "404 Not Found";
+//            message = "";
         } else if (!f.canRead()) {
             statusCode = "403";
-//            message = "403 Forbidden";
-            message = "";
+            message = "403 Forbidden";
+//            message = "";
         }
         return new String[]{message, statusCode};
     }
@@ -128,8 +128,8 @@ class MyHttpHandler implements HttpHandler {
             }
         }
 
-        byte[] bytes = new byte[]{};
-        if (statusCode == 200 && requestParamValue != null && !requestParamValue.isEmpty()) {
+        byte[] bytes = requestParamValue.getBytes();
+        if (statusCode == 200 && !requestParamValue.isEmpty()) {
             switch (type) {
                 case "jpg", "jpeg" -> {
                     bytes = new Reader().ReadImageFile(requestParamValue);
@@ -143,7 +143,6 @@ class MyHttpHandler implements HttpHandler {
                     bytes = new Reader().ReadBinaryFile(requestParamValue);
                 }
             }
-
         }
 
         headers.add("Content-Type", contentType);
