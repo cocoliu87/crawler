@@ -72,18 +72,22 @@ class MyHttpHandler implements HttpHandler {
     private String[] handleGetRequest(HttpExchange exchange) {
         // TODO: implementing the HW required GET request process
         log.info("handle GET request");
+
+        // invalid request, return earlier
+        if (exchange.getRequestURI().toString().contains("..")) {
+            return new String[]{"403 Forbidden", "403"};
+        }
+
         String message = this.customizedPath + exchange.getRequestURI().toString();
-        File f = new File(message);
         String statusCode = "200";
 
+        File f = new File(message);
         if (!f.exists() && !f.isDirectory()) {
             statusCode = "404";
             message = "404 Not Found";
-//            message = "";
         } else if (!f.canRead()) {
             statusCode = "403";
             message = "403 Forbidden";
-//            message = "";
         }
         return new String[]{message, statusCode};
     }
