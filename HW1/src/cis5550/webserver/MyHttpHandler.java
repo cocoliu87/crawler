@@ -16,6 +16,7 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.List;
 import java.util.Objects;
+import java.util.TimeZone;
 import java.util.concurrent.TimeUnit;
 
 class MyHttpHandler implements HttpHandler {
@@ -95,9 +96,8 @@ class MyHttpHandler implements HttpHandler {
                 String dateStr = exchange.getRequestHeaders().get("If-Modified-Since").get(0);
                 SimpleDateFormat format = new SimpleDateFormat("EEE, dd MMM yyyy HH:mm:ss zzz");
                 try {
-                    Date headerDate = format.parse(dateStr);
-                    Date fileDate = new Date(TimeUnit.SECONDS.toMillis(f.lastModified()));
-                    if (fileDate.after(headerDate)) {
+                    long headerDate = format.parse(dateStr).getTime();
+                    if (headerDate >= f.lastModified()) {
                         return new String[]{"304 Not Modified", "304"};
                     }
                 } catch (ParseException ignored) {
@@ -169,13 +169,10 @@ class MyHttpHandler implements HttpHandler {
         headers.add("Content-Type", contentType);
         headers.add("Server", "hw");
 
-        long size = bytes.length;
-        headers.add("Content-Length", String.valueOf(size));
-
         // handle Range header
         if (exchange.getRequestHeaders().containsKey("Range")) {
             // only handle single range
-            String value = exchange.getResponseHeaders().get("Range").get(0);
+            String value = exchange.getRequestHeaders().get("Range").get(0);
             // example "Range: bytes=0-1023"
             String range = value.split("=")[1];
             String[] parts = range.split("-");
@@ -184,20 +181,26 @@ class MyHttpHandler implements HttpHandler {
             if (parts.length == 1 && isInteger(parts[0])) {
                 start = 0;
                 end = Integer.parseInt(parts[0]);
-                bytes = copyByteArray(bytes, start, end);
+                if (end < bytes.length) {
+                    bytes = copyByteArray(bytes, start, end);
+                    // Content-Range: bytes 0-1023/146515
+                    headers.add("Content-Range", "bytes " + start + "-" + end);
+                }
             } else if (parts.length == 2) {
                 if (parts[0].isEmpty() && isInteger(parts[1])) {
                     // such as -100
                     start = bytes.length - Integer.parseInt(parts[1]);
                     end = bytes.length - 1;
                     bytes = copyByteArray(bytes, start, end);
+                    headers.add("Content-Range", "bytes "+start+"-"+end);
                 } else {
                     // such as 10-100
                     if (isInteger(parts[0]) && isInteger(parts[1])) {
                         start = Integer.parseInt(parts[0]);
                         end = Integer.parseInt(parts[1]);
-                        if (end >= start) {
+                        if (end >= start && end < bytes.length) {
                             bytes = copyByteArray(bytes, start, end);
+                            headers.add("Content-Range", "bytes "+start+"-"+end);
                         }
                     }
                 }
@@ -205,6 +208,9 @@ class MyHttpHandler implements HttpHandler {
                 log.warn("Invalid range, will ignore");
             }
         }
+
+        long size = bytes.length;
+        headers.add("Content-Length", String.valueOf(size));
 
         exchange.sendResponseHeaders(statusCode, size);
 
@@ -225,10 +231,16 @@ class MyHttpHandler implements HttpHandler {
     }
 
     public byte[] copyByteArray(byte[] ori, int start, int end) {
-        byte[] copy = new byte[end-start+1];
+        byte[] copy = new byte[end-start+1+2];
         while (start <= end) {
             copy[start] = ori[start];
             start++;
+        }
+//        System.arraycopy(ori, start, copy, 0, end-start+1);
+        byte[] crlf = "\r\n".getBytes();
+//        System.arraycopy(crlf, 0, copy, start, crlf.length);
+        for (int i = 0; i < crlf.length; i++) {
+            copy[start+i] = crlf[i];
         }
         return copy;
     }
