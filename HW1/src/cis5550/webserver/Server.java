@@ -1,21 +1,17 @@
 package cis5550.webserver;
 
 
-import java.io.IOException;
-import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.util.concurrent.Executors;
-import java.util.concurrent.ThreadPoolExecutor;
 
 import cis5550.tools.Logger;
-import com.sun.net.httpserver.HttpExchange;
-import com.sun.net.httpserver.HttpHandler;
 import com.sun.net.httpserver.HttpServer;
 
 import static java.lang.System.exit;
 
 public class Server {
     static Logger log = Logger.getLogger(Server.class);
+    final static String SERVER_NAME = "hw-coco";
     static final int NUM_WORKERS = 100;
     public static void main(String[] args) throws Exception {
         int port = 8000;
@@ -32,7 +28,6 @@ public class Server {
         try {
             // TODO: if seeing degraded performance, considering use newCachedThreadPool() instead.
             server.setExecutor(Executors.newFixedThreadPool(NUM_WORKERS));
-//            server.setExecutor(Executors.newCachedThreadPool());
             log.info("Starting HTTP server...");
             server.start();
         } catch (Exception e) {

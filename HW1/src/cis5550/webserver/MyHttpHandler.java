@@ -6,18 +6,17 @@ import com.sun.net.httpserver.Headers;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpHandler;
 
-//import org.apache.commons.text.StringEscapeUtils;
-
 import java.io.File;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
-import java.util.Date;
 import java.util.List;
 import java.util.Objects;
-import java.util.TimeZone;
-import java.util.concurrent.TimeUnit;
+
+import static cis5550.tools.Constants.Header.*;
+import static cis5550.tools.Utils.copyByteArray;
+import static cis5550.tools.Utils.isInteger;
 
 class MyHttpHandler implements HttpHandler {
     String customizedPath;
@@ -62,12 +61,6 @@ class MyHttpHandler implements HttpHandler {
           }
         };
 
-//        if("GET".equals(exchange.getRequestMethod())) {
-//            requestParamValue = handleGetRequest(exchange);
-//        } else if("POST".equals(exchange.getRequestMethod())) {
-//            requestParamValue = handlePostRequest(exchange);
-//        }
-
         handleResponse(exchange, requestParamValue, statusCode);
     }
 
@@ -90,10 +83,10 @@ class MyHttpHandler implements HttpHandler {
         } else if (!f.canRead()) {
             statusCode = "403";
             message = "403 Forbidden";
-        } else if (exchange.getRequestHeaders().containsKey("If-Modified-Since")) {
+        } else if (exchange.getRequestHeaders().containsKey(IF_MODIFIED_SINCE)) {
             // handle If-Modified-Since header
-            if (!exchange.getRequestHeaders().get("If-Modified-Since").isEmpty()) {
-                String dateStr = exchange.getRequestHeaders().get("If-Modified-Since").get(0);
+            if (!exchange.getRequestHeaders().get(IF_MODIFIED_SINCE).isEmpty()) {
+                String dateStr = exchange.getRequestHeaders().get(IF_MODIFIED_SINCE).get(0);
                 SimpleDateFormat format = new SimpleDateFormat("EEE, dd MMM yyyy HH:mm:ss zzz");
                 try {
                     long headerDate = format.parse(dateStr).getTime();
@@ -121,13 +114,8 @@ class MyHttpHandler implements HttpHandler {
     }
 
     private void handleResponse(HttpExchange exchange, String requestParamValue, int statusCode) throws IOException {
-        // handle requested content length
-        Headers reqHeaders = exchange.getRequestHeaders();
-        List<String> lenStr = reqHeaders.get("Content-Length");
-
         Headers headers = exchange.getResponseHeaders();
 
-//        log.info("Sending response");
         String[] params = exchange.getRequestURI().toString().split("\\.");
         String type = params[params.length-1];
         String contentType;
@@ -166,51 +154,55 @@ class MyHttpHandler implements HttpHandler {
             }
         }
 
-        headers.add("Content-Type", contentType);
-        headers.add("Server", "hw");
+        headers.add(CONTENT_TYPE, contentType);
+        headers.add(SERVER, Server.SERVER_NAME);
 
         // handle Range header
         if (exchange.getRequestHeaders().containsKey("Range")) {
             // only handle single range
-            String value = exchange.getRequestHeaders().get("Range").get(0);
-            // example "Range: bytes=0-1023"
-            String range = value.split("=")[1];
-            String[] parts = range.split("-");
-            int start = -1;
-            int end = -1;
-            if (parts.length == 1 && isInteger(parts[0])) {
-                start = 0;
-                end = Integer.parseInt(parts[0]);
-                if (end < bytes.length) {
-                    bytes = copyByteArray(bytes, start, end);
-                    // Content-Range: bytes 0-1023/146515
-                    headers.add("Content-Range", "bytes " + start + "-" + end);
-                }
-            } else if (parts.length == 2) {
-                if (parts[0].isEmpty() && isInteger(parts[1])) {
-                    // such as -100
-                    start = bytes.length - Integer.parseInt(parts[1]);
-                    end = bytes.length - 1;
-                    bytes = copyByteArray(bytes, start, end);
-                    headers.add("Content-Range", "bytes "+start+"-"+end);
-                } else {
-                    // such as 10-100
-                    if (isInteger(parts[0]) && isInteger(parts[1])) {
-                        start = Integer.parseInt(parts[0]);
-                        end = Integer.parseInt(parts[1]);
-                        if (end >= start && end < bytes.length) {
-                            bytes = copyByteArray(bytes, start, end);
-                            headers.add("Content-Range", "bytes "+start+"-"+end);
+            String value = exchange.getRequestHeaders().get(RANGE).get(0);
+            if (value.startsWith("bytes")) {
+                // example "Range: bytes=0-1023"
+                String range = value.split("=")[1];
+                String[] parts = range.split("-");
+                int start = -1;
+                int end = -1;
+                if (parts.length == 1 && isInteger(parts[0])) {
+                    start = 0;
+                    end = Integer.parseInt(parts[0]);
+                    if (end < bytes.length) {
+                        bytes = copyByteArray(bytes, start, end);
+                        // Content-Range: bytes 0-1023/146515
+                        headers.add(CONTENT_RANGE, "bytes " + start + "-" + end);
+                    }
+                } else if (parts.length == 2) {
+                    if (parts[0].isEmpty() && isInteger(parts[1])) {
+                        // such as -100
+                        start = bytes.length - Integer.parseInt(parts[1]);
+                        end = bytes.length - 1;
+                        bytes = copyByteArray(bytes, start, end);
+                        headers.add("Content-Range", "bytes " + start + "-" + end);
+                    } else {
+                        // such as 10-100
+                        if (isInteger(parts[0]) && isInteger(parts[1])) {
+                            start = Integer.parseInt(parts[0]);
+                            end = Integer.parseInt(parts[1]);
+                            if (end >= start && end < bytes.length) {
+                                bytes = copyByteArray(bytes, start, end);
+                                headers.add("Content-Range", "bytes " + start + "-" + end);
+                            }
                         }
                     }
+                } else {
+                    log.warn("Invalid range, will ignore");
                 }
             } else {
-                log.warn("Invalid range, will ignore");
+                log.warn("Invalid range header value, will ignore");
             }
         }
 
         long size = bytes.length;
-        headers.add("Content-Length", String.valueOf(size));
+        headers.add(CONTENT_LENGTH, String.valueOf(size));
 
         exchange.sendResponseHeaders(statusCode, size);
 
@@ -218,30 +210,5 @@ class MyHttpHandler implements HttpHandler {
         outputStream.write(bytes);
         outputStream.flush();
         outputStream.close();
-    }
-
-    public boolean isInteger(String str) {
-        try {
-            Integer.parseInt(str);
-        } catch(NumberFormatException | NullPointerException e) {
-            return false;
-        }
-        // only got here if we didn't return false
-        return true;
-    }
-
-    public byte[] copyByteArray(byte[] ori, int start, int end) {
-        byte[] copy = new byte[end-start+1+2];
-        while (start <= end) {
-            copy[start] = ori[start];
-            start++;
-        }
-//        System.arraycopy(ori, start, copy, 0, end-start+1);
-        byte[] crlf = "\r\n".getBytes();
-//        System.arraycopy(crlf, 0, copy, start, crlf.length);
-        for (int i = 0; i < crlf.length; i++) {
-            copy[start+i] = crlf[i];
-        }
-        return copy;
     }
 }
