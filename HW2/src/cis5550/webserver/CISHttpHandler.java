@@ -20,8 +20,10 @@ import static cis5550.tools.Utils.isInteger;
 
 class CISHttpHandler implements HttpHandler {
     String customizedPath;
-    CISHttpHandler(String path) {
-        customizedPath = path;
+    Server server;
+    CISHttpHandler(String path, Server server) {
+        this.server = server;
+        this.customizedPath = path;
     }
 
     final String IMAGE = "image/jpeg", TEXT = "text/plain", HTML = "text/html", STREAM = "application/octet-stream";
@@ -30,6 +32,18 @@ class CISHttpHandler implements HttpHandler {
 
     @Override
     public void handle(HttpExchange exchange) throws IOException {
+
+        // checking coming request
+        for (Routing r: Server.rt) {
+            if (exchange.getRequestMethod().equalsIgnoreCase(r.method.name())){
+                if (exchange.getRequestURI().toString().equalsIgnoreCase(r.pathPattern)) {
+                    Request req = new RequestImpl();
+                    Response resp = new ResponseImpl();
+
+                }
+            }
+        }
+
         String requestParamValue = "";
         int statusCode;
         if (exchange.getRequestHeaders() == null) {
