@@ -10,13 +10,18 @@ import com.sun.net.httpserver.HttpHandler;
 import java.io.File;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.net.InetSocketAddress;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 
 import static cis5550.tools.Constants.Header.*;
 import static cis5550.tools.Utils.copyByteArray;
 import static cis5550.tools.Utils.isInteger;
+import static cis5550.webserver.Server.port;
 
 class CISHttpHandler implements HttpHandler {
     String customizedPath;
@@ -37,9 +42,27 @@ class CISHttpHandler implements HttpHandler {
         for (Routing r: Server.rt) {
             if (exchange.getRequestMethod().equalsIgnoreCase(r.method.name())){
                 if (exchange.getRequestURI().toString().equalsIgnoreCase(r.pathPattern)) {
-                    Request req = new RequestImpl();
+                    Map<String, String> headers = new HashMap<>();
+                    for (String k: exchange.getRequestHeaders().keySet()) {
+                        headers.put(k, exchange.getRequestHeaders().get(k).get(0));
+                    }
+                    Request req = new RequestImpl(
+                            exchange.getRequestMethod(),
+                            exchange.getRequestURI().toString(),
+                            exchange.getProtocol(),
+                            headers,
+                            null,
+                            null,
+                            new InetSocketAddress(port),
+                            null,
+                            this.server);
                     Response resp = new ResponseImpl();
-
+                    try {
+                        r.route.handle(req, resp);
+                    } catch (Exception e) {
+                        handleResponse(exchange, "500 Internal Server Error", 500);
+                        return;
+                    }
                 }
             }
         }
