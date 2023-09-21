@@ -11,8 +11,6 @@ import java.io.File;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.InetSocketAddress;
-import java.net.URI;
-import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
@@ -39,7 +37,6 @@ class CISHttpHandler implements HttpHandler {
     @Override
     public synchronized void handle(HttpExchange exchange) throws IOException {
         // checking coming request
-
         for (Routing r: Server.rt) {
             if (exchange.getRequestMethod().equalsIgnoreCase(r.method.name())){
                 if (exchange.getRequestURI().toString().toLowerCase().startsWith(r.pathPattern) || r.pathPattern.contains(":")) {
@@ -95,7 +92,7 @@ class CISHttpHandler implements HttpHandler {
             }
         }
 
-        handleFileResponse(exchange);
+        handleGetFileResponse(exchange);
 
     }
 
@@ -162,6 +159,78 @@ class CISHttpHandler implements HttpHandler {
             outputStream.flush();
             outputStream.close();
         }
+    }
+
+    private void handleGetFileResponse(HttpExchange exchange) throws IOException {
+        String[] params = exchange.getRequestURI().toString().split("\\.");
+        String type = params[params.length-1];
+
+        String[] parts = exchange.getRequestURI().toString().split("/");
+        String path = parts[parts.length-1];
+
+        File f = new File(path);
+        int statusCode = 200;
+        String message = "";
+        if (!f.exists() && !f.isDirectory()) {
+            statusCode = 404;
+            message = "404 Not Found";
+        } else if (!f.canRead()) {
+            statusCode = 403;
+            message = "403 Forbidden";
+        }
+
+        byte[] bytes = message.getBytes();
+        long size;
+        Headers headers = exchange.getResponseHeaders();
+        if (statusCode == 200) {
+            String contentType;
+            switch (type) {
+                case "jpg", "jpeg" -> {
+                    contentType = IMAGE;
+                    break;
+                }
+                case "txt" -> {
+                    contentType = TEXT;
+                    break;
+                }
+                case "html" -> {
+                    contentType = HTML;
+                    break;
+                }
+                default -> {
+                    contentType = STREAM;
+                }
+            }
+
+            switch (type) {
+                case "jpg", "jpeg" -> {
+                    bytes = new Reader().ReadImageFile(path);
+                    break;
+                }
+                case "txt", "html" -> {
+                    bytes = new Reader().ReadTxtFile(path);
+                    break;
+                }
+                default -> {
+                    bytes = new Reader().ReadBinaryFile(path);
+                }
+            }
+
+            headers.add(CONTENT_TYPE, contentType);
+            bytes = Arrays.copyOfRange(bytes, 0, bytes.length-1);
+//            headers.add(CONTENT_LENGTH, String.valueOf(size));
+        }
+
+        size = bytes.length;
+        headers.add(SERVER, Server.SERVER_NAME);
+        headers.add(CONTENT_LENGTH, String.valueOf(size));
+        exchange.sendResponseHeaders(statusCode, size);
+
+        OutputStream outputStream = exchange.getResponseBody();
+        assert bytes != null;
+        outputStream.write(bytes);
+        outputStream.flush();
+        outputStream.close();
     }
 
     private synchronized void handleFileResponse(HttpExchange exchange) throws IOException {

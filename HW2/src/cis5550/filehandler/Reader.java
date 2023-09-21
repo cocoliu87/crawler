@@ -16,7 +16,7 @@ public class Reader {
     public byte[] ReadTxtFile(String fileName) {
         File f = new File(fileName);
         if (f.exists() && f.canRead()) {
-            return readUsingFiles(fileName);
+            return readFile(fileName);
         } else {
             log.warn("The file " + fileName + "is not readable or existing");
             return null;
@@ -42,7 +42,7 @@ public class Reader {
         return b.toByteArray();
     }
 
-    private static byte[] readUsingFiles(String fileName) {
+    private static byte[] readFile(String fileName) {
         try {
             return Files.readAllBytes(Paths.get(fileName));
         } catch (IOException e) {
@@ -52,7 +52,7 @@ public class Reader {
     }
 
 
-    private static String readUsingBufferedReaderCharArray(String fileName) {
+    private static String readBufferedReaderCharArray(String fileName) {
         BufferedReader reader = null;
         StringBuilder stringBuilder = new StringBuilder();
         char[] buffer = new char[10];
