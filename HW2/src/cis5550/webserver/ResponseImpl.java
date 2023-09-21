@@ -61,12 +61,10 @@ public class ResponseImpl implements Response {
         if (!this.initWrite) {
             // the subsequent calls
             if (b.length > 0) {
-                long size = b.length;
-                exchange.sendResponseHeaders(200, size);
+//                long size = b.length;
+                String bStr = new String(b);
                 OutputStream stream = exchange.getResponseBody();
                 stream.write(b);
-                stream.flush();
-                stream.close();
             }
         } else {
             // the first call
@@ -76,15 +74,11 @@ public class ResponseImpl implements Response {
                 for (Map.Entry<String, String> entry: this.headers.entrySet()) {
                     headers.put(entry.getKey(), Collections.singletonList(entry.getValue()));
                 }
-                long size = b.length;
-                exchange.sendResponseHeaders(200, size);
+//                long size = b.length;
+                exchange.sendResponseHeaders(200, 0);
+
                 this.initWrite = false;
-                if (b.length > 0) {
-                    OutputStream stream = exchange.getResponseBody();
-                    stream.write(b);
-//                    stream.flush();
-//                    stream.close();
-                }
+                this.write(b);
             }
         }
     }

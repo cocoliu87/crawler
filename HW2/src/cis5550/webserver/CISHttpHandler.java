@@ -39,6 +39,7 @@ class CISHttpHandler implements HttpHandler {
     @Override
     public synchronized void handle(HttpExchange exchange) throws IOException {
         // checking coming request
+
         for (Routing r: Server.rt) {
             if (exchange.getRequestMethod().equalsIgnoreCase(r.method.name())){
                 if (exchange.getRequestURI().toString().toLowerCase().startsWith(r.pathPattern) || r.pathPattern.contains(":")) {
@@ -81,6 +82,8 @@ class CISHttpHandler implements HttpHandler {
                         } else {
                             ResponseImpl resp = new ResponseImpl(exchange);
                             r.route.handle(req, resp);
+                            exchange.getResponseBody().flush();
+                            exchange.getResponseBody().close();
                         }
 
                     } catch (Exception e) {
