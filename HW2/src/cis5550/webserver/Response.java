@@ -21,7 +21,7 @@ public interface Response {
   // multiple times with the same header name; the result should be multiple header lines. 
   // type(X) should be the same as header("Content-Type", X). If write() has been called, 
   // these methods should have no effect.
-  void header(String name, String value);
+  void  header(String name, String value);
   void type(String contentType);
 
   // This method sets the status code and the reason phrase. If it is called more than once,

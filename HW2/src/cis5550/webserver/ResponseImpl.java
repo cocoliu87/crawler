@@ -1,6 +1,10 @@
 package cis5550.webserver;
 
-import java.util.Map;
+import com.sun.net.httpserver.Headers;
+import com.sun.net.httpserver.HttpExchange;
+
+import java.io.OutputStream;
+import java.util.*;
 
 public class ResponseImpl implements Response {
     String body;
@@ -8,9 +12,22 @@ public class ResponseImpl implements Response {
     Map<String, String> headers;
     int status;
     String reason;
+
+    boolean initWrite;
+
+    HttpExchange exchange;
     public ResponseImpl() {
+        this.headers = new HashMap<>();
+        this.bodyRaw = new byte[]{};
+        this.body = "";
         this.reason = "OK";
         this.status = 200;
+    }
+
+    public ResponseImpl(HttpExchange exchange) {
+        this();
+        this.exchange = exchange;
+        this.initWrite = true;
     }
 
     @Override
@@ -41,12 +58,34 @@ public class ResponseImpl implements Response {
 
     @Override
     public void write(byte[] b) throws Exception {
-        if (this.headers.containsKey("Connection") && this.headers.get("Connection").equals("close")) {
+        if (!this.initWrite) {
             // the subsequent calls
+            if (b.length > 0) {
+                long size = b.length;
+                exchange.sendResponseHeaders(200, size);
+                OutputStream stream = exchange.getResponseBody();
+                stream.write(b);
+                stream.flush();
+                stream.close();
+            }
         } else {
             // the first call
             this.header("Connection", "close");
-
+            if (this.exchange != null) {
+                Headers headers = exchange.getResponseHeaders();
+                for (Map.Entry<String, String> entry: this.headers.entrySet()) {
+                    headers.put(entry.getKey(), Collections.singletonList(entry.getValue()));
+                }
+                long size = b.length;
+                exchange.sendResponseHeaders(200, size);
+                this.initWrite = false;
+                if (b.length > 0) {
+                    OutputStream stream = exchange.getResponseBody();
+                    stream.write(b);
+//                    stream.flush();
+//                    stream.close();
+                }
+            }
         }
     }
 

@@ -56,21 +56,12 @@ public class Server implements Runnable {
 
     public static void port(int N) {
         port = N;
-//        if (server != null) {
-//            server.port = N;
-//        } else {
-//            log.error("Server hasn't been initialized for taking port");
-//        }
     }
 
     public static class staticFiles {
         public static void location(String s) {
             path = s;
-//            if (server != null) {
-//                server.path = s;
-//            } else {
-//                log.error("Server hasn't been initialized for taking file path");
-//            }
+
         }
     }
 
@@ -79,14 +70,15 @@ public class Server implements Runnable {
             server = new Server();
         }
 
+        Routing routing = new Routing(Routing.Verb.GET, s, r);
+        rt.add(routing);
+        server.setRouting(routing);
+
         if (!threadLaunched) {
             Thread t = new Thread(server);
             t.start();
             threadLaunched = true;
         }
-        Routing routing = new Routing(Routing.Verb.GET, s, r);
-        rt.add(routing);
-        server.setRouting(routing);
     }
 
     public static void post(String s, Route r){
@@ -94,14 +86,15 @@ public class Server implements Runnable {
             server = new Server();
         }
 
+        Routing routing = new Routing(Routing.Verb.POST, s, r);
+        rt.add(routing);
+        server.setRouting(routing);
+
         if (!threadLaunched) {
             Thread t = new Thread(server);
             t.start();
             threadLaunched = true;
         }
-        Routing routing = new Routing(Routing.Verb.POST, s, r);
-        rt.add(routing);
-        server.setRouting(routing);
     }
 
     public static void put(String s, Route r){
@@ -109,13 +102,14 @@ public class Server implements Runnable {
             server = new Server();
         }
 
+        Routing routing = new Routing(Routing.Verb.PUT, s, r);
+        rt.add(routing);
+        server.setRouting(routing);
+
         if (!threadLaunched) {
             Thread t = new Thread(server);
             t.start();
             threadLaunched = true;
         }
-        Routing routing = new Routing(Routing.Verb.PUT, s, r);
-        rt.add(routing);
-        server.setRouting(routing);
     }
 }

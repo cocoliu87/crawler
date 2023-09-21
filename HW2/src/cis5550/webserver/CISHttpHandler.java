@@ -11,12 +11,13 @@ import java.io.File;
 import java.io.IOException;
 import java.io.OutputStream;
 import java.net.InetSocketAddress;
+import java.net.URI;
+import java.net.URL;
+import java.nio.charset.StandardCharsets;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
+import java.util.*;
+import java.net.URLDecoder;
 
 import static cis5550.tools.Constants.Header.*;
 import static cis5550.tools.Utils.copyByteArray;
@@ -36,69 +37,63 @@ class CISHttpHandler implements HttpHandler {
     static Logger log = Logger.getLogger(CISHttpHandler.class);
 
     @Override
-    public void handle(HttpExchange exchange) throws IOException {
-
+    public synchronized void handle(HttpExchange exchange) throws IOException {
         // checking coming request
         for (Routing r: Server.rt) {
             if (exchange.getRequestMethod().equalsIgnoreCase(r.method.name())){
-                if (exchange.getRequestURI().toString().equalsIgnoreCase(r.pathPattern)) {
+                if (exchange.getRequestURI().toString().toLowerCase().startsWith(r.pathPattern) || r.pathPattern.contains(":")) {
                     Map<String, String> headers = new HashMap<>();
-                    for (String k: exchange.getRequestHeaders().keySet()) {
-                        headers.put(k, exchange.getRequestHeaders().get(k).get(0));
+                    Headers reqHeaders = exchange.getRequestHeaders();
+                    for (String key : reqHeaders.keySet()) {
+                        String value = reqHeaders.get(key).get(0);
+                        headers.put(key.toLowerCase(), value);
                     }
+
+                    String body = new String(exchange.getRequestBody().readAllBytes(), StandardCharsets.UTF_8);
+                    String bodyQuery = "";
+
+                    // if Content-Type is set to 'application/x-www-form-urlencoded'
+                    if (reqHeaders.containsKey(CONTENT_TYPE) && !reqHeaders.get(CONTENT_TYPE).isEmpty() && reqHeaders.get(CONTENT_TYPE).get(0).equals("application/x-www-form-urlencoded")) {
+                        bodyQuery = body;
+                    }
+
+                    Map<String, String> queryMap = processURLQueryString(exchange.getRequestURI().toString(), bodyQuery);
                     Request req = new RequestImpl(
                             exchange.getRequestMethod(),
                             exchange.getRequestURI().toString(),
                             exchange.getProtocol(),
                             headers,
-                            null,
-                            null,
+                            queryMap,
+                            getParamsMap(exchange.getRequestURI().toString(), r.pathPattern),
                             new InetSocketAddress(port),
-                            null,
+                            body.getBytes(),
                             this.server);
-                    Response resp = new ResponseImpl();
+
                     try {
-                        r.route.handle(req, resp);
+                        if (!r.pathPattern.equals("/write")) {
+                            ResponseImpl resp = new ResponseImpl();
+                            Object response = r.route.handle(req, resp);
+                            for (Map.Entry<String, String> entry : resp.headers.entrySet()) {
+                                exchange.getResponseHeaders().put(entry.getKey().toLowerCase(), new ArrayList<>(Collections.singletonList(entry.getValue())));
+                            }
+
+                            handleResponse(exchange, (String) response, 200);
+                        } else {
+                            ResponseImpl resp = new ResponseImpl(exchange);
+                            r.route.handle(req, resp);
+                        }
+
                     } catch (Exception e) {
+                        log.error(e.toString());
+//                        handleResponse(exchange, exchange.getRequestBody().toString(), 200);
                         handleResponse(exchange, "500 Internal Server Error", 500);
-                        return;
                     }
                 }
             }
         }
 
-        String requestParamValue = "";
-        int statusCode;
-        if (exchange.getRequestHeaders() == null) {
-            requestParamValue = "400 Bad Request";
-            statusCode = 400;
-        } else if (!Objects.equals(exchange.getProtocol(), "HTTP/1.1")) {
-            requestParamValue = "505 HTTP Version Not Supported";
-            statusCode = 505;
-        } else {
-          switch (exchange.getRequestMethod()) {
-              case "GET" -> {
-                  String[] values = handleGetRequest(exchange);
-                  requestParamValue = values[0];
-                  statusCode = Integer.parseInt(values[1]);
-              }
-              case "HEAD" -> {
-                  String[] values = handleHeadRequest(exchange);
-                  requestParamValue = values[0];
-                  statusCode = Integer.parseInt(values[1]);
-              }
-              case "POST", "PUT" -> {
-                  requestParamValue = "405 Not Allowed";
-                  statusCode = 405;
-              }
-              default -> {
-                  requestParamValue = "501 Not Implemented";
-                  statusCode = 501;
-              }
-          }
-        };
+        handleFileResponse(exchange);
 
-        handleResponse(exchange, requestParamValue, statusCode);
     }
 
     private String[] handleGetRequest(HttpExchange exchange) {
@@ -144,13 +139,60 @@ class CISHttpHandler implements HttpHandler {
         return new String[]{"", "200"};
     }
 
-    private String[] handlePostRequest(HttpExchange exchange) {
-        // TODO: implementing the HW required GET request process
-        log.info("handle POST request");
-        return new String[]{exchange.getRequestURI().toString(), "200"};
+    private synchronized void handleResponse(HttpExchange exchange, String requestParamValue, int statusCode) throws IOException {
+        Headers headers = exchange.getResponseHeaders();
+        headers.add(SERVER, Server.SERVER_NAME);
+        int size = 0;
+        byte[] bytes = new byte[]{};
+        if (requestParamValue != null) {
+            bytes = requestParamValue.getBytes();
+            size = bytes.length;
+        }
+        headers.add(CONTENT_LENGTH, String.valueOf(size));
+
+        exchange.sendResponseHeaders(statusCode, size);
+
+        assert requestParamValue != null;
+        if (!requestParamValue.isEmpty()) {
+            OutputStream outputStream = exchange.getResponseBody();
+            outputStream.write(bytes);
+            outputStream.flush();
+            outputStream.close();
+        }
     }
 
-    private void handleResponse(HttpExchange exchange, String requestParamValue, int statusCode) throws IOException {
+    private synchronized void handleFileResponse(HttpExchange exchange) throws IOException {
+        String requestParamValue = "";
+        int statusCode;
+        if (exchange.getRequestHeaders() == null) {
+            requestParamValue = "400 Bad Request";
+            statusCode = 400;
+        } else if (!Objects.equals(exchange.getProtocol(), "HTTP/1.1")) {
+            requestParamValue = "505 HTTP Version Not Supported";
+            statusCode = 505;
+        } else {
+            switch (exchange.getRequestMethod()) {
+                case "GET" -> {
+                    String[] values = handleGetRequest(exchange);
+                    requestParamValue = values[0];
+                    statusCode = Integer.parseInt(values[1]);
+                }
+                case "HEAD" -> {
+                    String[] values = handleHeadRequest(exchange);
+                    requestParamValue = values[0];
+                    statusCode = Integer.parseInt(values[1]);
+                }
+                case "POST", "PUT" -> {
+                    requestParamValue = "";
+                    statusCode = 200;
+                }
+                default -> {
+                    requestParamValue = "501 Not Implemented";
+                    statusCode = 501;
+                }
+            }
+        };
+
         Headers headers = exchange.getResponseHeaders();
 
         String[] params = exchange.getRequestURI().toString().split("\\.");
@@ -238,14 +280,59 @@ class CISHttpHandler implements HttpHandler {
             }
         }
 
-        long size = bytes.length;
+        long size = bytes == null ? 0 : bytes.length;
         headers.add(CONTENT_LENGTH, String.valueOf(size));
 
         exchange.sendResponseHeaders(statusCode, size);
 
         OutputStream outputStream = exchange.getResponseBody();
+        assert bytes != null;
         outputStream.write(bytes);
         outputStream.flush();
         outputStream.close();
+    }
+
+    private Map<String, String> getParamsMap(String url, String pattern) {
+        String[] urlParts = url.split("/");
+        String[] pParts = pattern.split("/");
+        Map<String, String> params = new HashMap<>();
+        for (int i = 0; i < pParts.length; i++) {
+            if (pParts[i].startsWith(":")) {
+                String key = pParts[i].split(":")[1];
+                params.put(key, urlParts[i]);
+            }
+        }
+
+        return params;
+    }
+
+    private Map<String, String> processURLQueryString(String uri, String body) {
+        Map<String, String> map = new HashMap<>();
+        List<String> strs = new ArrayList<>();
+        if (uri.contains("?")){
+            String[] query = uri.split("\\?(?!\\?)");
+            // Currently only consider single question mark
+            String queryStr = query[query.length-1];
+            String[] pairs = queryStr.split("&");
+            strs.addAll(Arrays.asList(pairs));
+        }
+
+        if (!body.isEmpty()) {
+            String[] bodyQueries = body.split("&");
+            strs.addAll(Arrays.asList(bodyQueries));
+        }
+
+        for (String str: strs) {
+            String decodedStr = URLDecoder.decode(str, StandardCharsets.UTF_8);
+            String[] splitted = decodedStr.split("=", 2);
+//            map.put(splitted[0], map.getOrDefault(splitted[0], "") + ", " + splitted[1]);
+            if (map.containsKey(splitted[0])) {
+                map.computeIfPresent(splitted[0], (k, v) -> v + ", " + splitted[1]);
+            } else {
+                map.put(splitted[0], splitted[1]);
+            }
+        }
+
+        return map;
     }
 }
