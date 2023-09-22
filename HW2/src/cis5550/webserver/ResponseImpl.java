@@ -3,6 +3,8 @@ package cis5550.webserver;
 import com.sun.net.httpserver.Headers;
 import com.sun.net.httpserver.HttpExchange;
 
+import java.awt.event.TextEvent;
+import java.io.IOException;
 import java.io.OutputStream;
 import java.util.*;
 
@@ -61,8 +63,6 @@ public class ResponseImpl implements Response {
         if (!this.initWrite) {
             // the subsequent calls
             if (b.length > 0) {
-//                long size = b.length;
-                String bStr = new String(b);
                 OutputStream stream = exchange.getResponseBody();
                 stream.write(b);
             }
@@ -74,7 +74,6 @@ public class ResponseImpl implements Response {
                 for (Map.Entry<String, String> entry: this.headers.entrySet()) {
                     headers.put(entry.getKey(), Collections.singletonList(entry.getValue()));
                 }
-//                long size = b.length;
                 exchange.sendResponseHeaders(200, 0);
 
                 this.initWrite = false;
@@ -85,11 +84,30 @@ public class ResponseImpl implements Response {
 
     @Override
     public void redirect(String url, int responseCode) {
-        return;
+        String phrase = "";
+        switch (responseCode) {
+            case 300 -> phrase = "Multiple Choices";
+            case 301 -> phrase = "Moved Permanently";
+            case 302 -> phrase = "Found";
+            case 303 -> phrase = "See Other";
+            case 307 -> phrase = "Temporary Redirect";
+            case 308 -> phrase = "Permanent Redirect";
+        }
+        this.status(responseCode, phrase);
+        this.header("Location", url);
     }
 
     @Override
     public void halt(int statusCode, String reasonPhrase) {
-        return;
+        OutputStream stream = this.exchange.getResponseBody();
+        byte[] message = reasonPhrase.getBytes();
+        try {
+            exchange.sendResponseHeaders(statusCode, message.length);
+            stream.write(message);
+            stream.flush();
+            stream.close();
+        } catch (IOException ignored) {
+
+        }
     }
 }

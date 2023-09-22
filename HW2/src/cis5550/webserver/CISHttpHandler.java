@@ -70,12 +70,13 @@ class CISHttpHandler implements HttpHandler {
                     try {
                         if (!r.pathPattern.equals("/write")) {
                             ResponseImpl resp = new ResponseImpl();
+                            Server.before((Request r1, Response r2) -> {}, req, resp);
                             Object response = r.route.handle(req, resp);
                             for (Map.Entry<String, String> entry : resp.headers.entrySet()) {
                                 exchange.getResponseHeaders().put(entry.getKey().toLowerCase(), new ArrayList<>(Collections.singletonList(entry.getValue())));
                             }
-
-                            handleResponse(exchange, (String) response, 200);
+                            handleResponse(exchange, (String) response, resp.status);
+                            Server.after((Request r1, Response r2) -> {}, req, resp);
                         } else {
                             ResponseImpl resp = new ResponseImpl(exchange);
                             r.route.handle(req, resp);
@@ -85,14 +86,13 @@ class CISHttpHandler implements HttpHandler {
 
                     } catch (Exception e) {
                         log.error(e.toString());
-//                        handleResponse(exchange, exchange.getRequestBody().toString(), 200);
                         handleResponse(exchange, "500 Internal Server Error", 500);
                     }
                 }
             }
         }
 
-        handleGetFileResponse(exchange);
+        handleFileResponse(exchange);
 
     }
 
@@ -139,21 +139,21 @@ class CISHttpHandler implements HttpHandler {
         return new String[]{"", "200"};
     }
 
-    private synchronized void handleResponse(HttpExchange exchange, String requestParamValue, int statusCode) throws IOException {
+    private synchronized void handleResponse(HttpExchange exchange, String body, int statusCode) throws IOException {
         Headers headers = exchange.getResponseHeaders();
         headers.add(SERVER, Server.SERVER_NAME);
         int size = 0;
         byte[] bytes = new byte[]{};
-        if (requestParamValue != null) {
-            bytes = requestParamValue.getBytes();
+        if (body != null) {
+            bytes = body.getBytes();
             size = bytes.length;
         }
         headers.add(CONTENT_LENGTH, String.valueOf(size));
 
         exchange.sendResponseHeaders(statusCode, size);
 
-        assert requestParamValue != null;
-        if (!requestParamValue.isEmpty()) {
+        assert body != null;
+        if (!body.isEmpty()) {
             OutputStream outputStream = exchange.getResponseBody();
             outputStream.write(bytes);
             outputStream.flush();

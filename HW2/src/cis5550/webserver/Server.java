@@ -112,4 +112,12 @@ public class Server implements Runnable {
             threadLaunched = true;
         }
     }
+
+    public static void before(Condition c, Request req, Response resp) {
+        c.operate(req, resp);
+    }
+
+    public static void after(Condition c, Request req, Response resp) {
+        c.operate(req, resp);
+    }
 }
