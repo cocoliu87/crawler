@@ -78,29 +78,6 @@ public class Server implements Runnable {
             httpsServer.createContext("/", new CISHttpHandler(path, this));
         }
 
-        // Running a periodical job to clean up session table
-        // this runnable should run every x minutes.
-//        new Thread(new Runnable() {
-//            @Override
-//            public void run() {
-//                while (true) {
-//                    try {
-//                        Iterator<Map.Entry<String, Session>> iterator = sessions.entrySet().iterator();
-//                        while (iterator.hasNext()) {
-//                            Map.Entry<String, Session> entry = iterator.next();
-//                            SessionImpl s = (SessionImpl) entry.getValue();
-//                            if (s.getLastAccessedTime() < System.currentTimeMillis() - s.getAvailableInSecond()*1000L) {
-//                                iterator.remove();
-//                            }
-//                        }
-//                        Thread.sleep(Duration.ofMinutes(10));
-//                    } catch (InterruptedException e) {
-//                        throw new RuntimeException(e);
-//                    }
-//                }
-//            }
-//        }).start();
-
         try {
             // TODO: if seeing degraded performance, considering use newCachedThreadPool() instead.
             if (!secure) {
@@ -188,6 +165,8 @@ public class Server implements Runnable {
             t1.start();
             Thread t2 = new Thread(serverSecure);
             t2.start();
+            startCleanupTread(server.sessions);
+            startCleanupTread(serverSecure.sessions);
             threadLaunched = true;
         }
     }
@@ -208,6 +187,8 @@ public class Server implements Runnable {
             t1.start();
             Thread t2 = new Thread(serverSecure);
             t2.start();
+            startCleanupTread(server.sessions);
+            startCleanupTread(serverSecure.sessions);
             threadLaunched = true;
         }
     }
@@ -217,18 +198,22 @@ public class Server implements Runnable {
             @Override
             public void run() {
                 while (true) {
+                    System.out.println("periodic checking...");
                     try {
-                        Iterator<Map.Entry<String, Session>> iterator = sessions.entrySet().iterator();
-                        while (iterator.hasNext()) {
-                            Map.Entry<String, Session> entry = iterator.next();
-                            SessionImpl s = (SessionImpl) entry.getValue();
-                            if (s.getLastAccessedTime() < System.currentTimeMillis() - s.getAvailableInSecond()*1000L) {
-                                iterator.remove();
+                        // every 10 minutes, clean up the session table.
+                        Thread.sleep(600*1000);
+                    } catch (InterruptedException e) {
+                        System.out.println(e.toString());
+                        throw new RuntimeException(e);
+                    }
+                    for (Map.Entry<String, Session> entry : sessions.entrySet()) {
+                        if (entry.getKey() != null) {
+                            SessionImpl s = (SessionImpl)entry.getValue();
+                            long now = System.currentTimeMillis();
+                            if (s.getLastAccessedTime() < (now - (s.getAvailableInSecond()*1000L))) {
+                                sessions.remove(entry.getKey());
                             }
                         }
-                        Thread.sleep(Duration.ofMinutes(10));
-                    } catch (InterruptedException e) {
-                        throw new RuntimeException(e);
                     }
                 }
             }
