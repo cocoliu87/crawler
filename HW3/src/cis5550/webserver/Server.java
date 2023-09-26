@@ -166,6 +166,8 @@ public class Server implements Runnable {
             t1.start();
             Thread t2 = new Thread(serverSecure);
             t2.start();
+            startCleanupTread(server.sessions);
+            startCleanupTread(serverSecure.sessions);
             threadLaunched = true;
         }
     }
@@ -208,6 +210,29 @@ public class Server implements Runnable {
             t2.start();
             threadLaunched = true;
         }
+    }
+
+    private static void startCleanupTread(ConcurrentHashMap<String, Session> sessions) {
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                while (true) {
+                    try {
+                        Iterator<Map.Entry<String, Session>> iterator = sessions.entrySet().iterator();
+                        while (iterator.hasNext()) {
+                            Map.Entry<String, Session> entry = iterator.next();
+                            SessionImpl s = (SessionImpl) entry.getValue();
+                            if (s.getLastAccessedTime() < System.currentTimeMillis() - s.getAvailableInSecond()*1000L) {
+                                iterator.remove();
+                            }
+                        }
+                        Thread.sleep(Duration.ofMinutes(10));
+                    } catch (InterruptedException e) {
+                        throw new RuntimeException(e);
+                    }
+                }
+            }
+        }).start();
     }
 
     public static void before(Condition c, Request req, Response resp) {
