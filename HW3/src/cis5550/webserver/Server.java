@@ -7,6 +7,7 @@ import java.net.InetSocketAddress;
 import java.security.KeyStore;
 import java.time.Duration;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executors;
 
 import cis5550.tools.Logger;
@@ -35,10 +36,10 @@ public class Server implements Runnable {
     public final boolean secure;
 
     volatile Routing routing;
-    volatile Map<String, Session> sessions;
+    volatile ConcurrentHashMap<String, Session> sessions;
     public Server(boolean secure) {
         this.secure = secure;
-        sessions = new HashMap<>();
+        sessions = new ConcurrentHashMap<>();
     }
     public synchronized Routing getRouting() {
         return routing;
