@@ -79,26 +79,26 @@ public class Server implements Runnable {
 
         // Running a periodical job to clean up session table
         // this runnable should run every x minutes.
-        new Thread(new Runnable() {
-            @Override
-            public void run() {
-                while (true) {
-                    try {
-                        Iterator<Map.Entry<String, Session>> iterator = sessions.entrySet().iterator();
-                        while (iterator.hasNext()) {
-                            Map.Entry<String, Session> entry = iterator.next();
-                            SessionImpl s = (SessionImpl) entry.getValue();
-                            if (s.getLastAccessedTime() < System.currentTimeMillis() - s.getAvailableInSecond()*1000L) {
-                                iterator.remove();
-                            }
-                        }
-                        Thread.sleep(Duration.ofMinutes(10));
-                    } catch (InterruptedException e) {
-                        throw new RuntimeException(e);
-                    }
-                }
-            }
-        }).start();
+//        new Thread(new Runnable() {
+//            @Override
+//            public void run() {
+//                while (true) {
+//                    try {
+//                        Iterator<Map.Entry<String, Session>> iterator = sessions.entrySet().iterator();
+//                        while (iterator.hasNext()) {
+//                            Map.Entry<String, Session> entry = iterator.next();
+//                            SessionImpl s = (SessionImpl) entry.getValue();
+//                            if (s.getLastAccessedTime() < System.currentTimeMillis() - s.getAvailableInSecond()*1000L) {
+//                                iterator.remove();
+//                            }
+//                        }
+//                        Thread.sleep(Duration.ofMinutes(10));
+//                    } catch (InterruptedException e) {
+//                        throw new RuntimeException(e);
+//                    }
+//                }
+//            }
+//        }).start();
 
         try {
             // TODO: if seeing degraded performance, considering use newCachedThreadPool() instead.
