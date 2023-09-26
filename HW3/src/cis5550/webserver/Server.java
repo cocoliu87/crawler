@@ -5,10 +5,8 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.security.KeyStore;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.time.Duration;
+import java.util.*;
 import java.util.concurrent.Executors;
 
 import cis5550.tools.Logger;
@@ -78,6 +76,29 @@ public class Server implements Runnable {
 
             httpsServer.createContext("/", new CISHttpHandler(path, this));
         }
+
+        // Running a periodical job to clean up session table
+        new Thread(new Runnable() {
+            @Override
+            public void run() {
+                while (true) {
+                    try {
+                        Iterator<Map.Entry<String, Session>> iterator = sessions.entrySet().iterator();
+                        while (iterator.hasNext()) {
+                            Map.Entry<String, Session> entry = iterator.next();
+                            SessionImpl s = (SessionImpl) entry.getValue();
+                            if (s.getLastAccessedTime() < System.currentTimeMillis() - s.getAvailableInSecond()*1000L) {
+                                iterator.remove();
+                            }
+                        }
+                        Thread.sleep(Duration.ofMinutes(10));
+                    } catch (InterruptedException e) {
+                        throw new RuntimeException(e);
+                    }
+                }
+            }
+        }).start();
+
         try {
             // TODO: if seeing degraded performance, considering use newCachedThreadPool() instead.
             if (!secure) {
