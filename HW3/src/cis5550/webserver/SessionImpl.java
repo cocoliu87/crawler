@@ -50,7 +50,7 @@ public class SessionImpl implements Session {
         this.id = UUID.randomUUID().toString();
         this.validSession = true;
         attributes = new HashMap<>();
-        this.maxActiveInterval(activateInterval);
+//        this.maxActiveInterval(activateInterval);
     }
 
     @Override

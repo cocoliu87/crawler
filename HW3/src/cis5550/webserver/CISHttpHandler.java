@@ -57,7 +57,7 @@ class CISHttpHandler implements HttpHandler {
                     }
 
                     Map<String, String> queryMap = processURLQueryString(exchange.getRequestURI().toString(), bodyQuery);
-                    Request req = new RequestImpl(
+                    RequestImpl req = new RequestImpl(
                             exchange.getRequestMethod(),
                             exchange.getRequestURI().toString(),
                             exchange.getProtocol(),
@@ -68,44 +68,20 @@ class CISHttpHandler implements HttpHandler {
                             body.getBytes(),
                             this.server);
 
-                    SessionImpl s = null;
-                    if (reqHeaders.containsKey("Cookie")) {
-                        for (String pair: reqHeaders.get("Cookie")) {
-                            String[] parts = pair.split("=");
-                            if (parts.length == 2 && parts[0].equals("SessionID")) {
-                                if (this.server.sessions.containsKey(parts[1])) {
-                                    s = (SessionImpl) this.server.sessions.get(parts[1]);
-                                    long now = System.currentTimeMillis();
-                                    if (s.getLastAccessedTime() < now - s.getAvailableInSecond()*1000L) {
-                                        String oldId = s.getId();
-                                        s = (SessionImpl) req.session();
-                                        this.server.sessions.remove(oldId);
-                                        this.server.sessions.put(s.getId(), s);
-                                    } else {
-                                        s.setLastAccessedTime(System.currentTimeMillis());
-                                    }
-                                } else {
-                                    s = (SessionImpl) req.session();
-                                    this.server.sessions.put(s.id(), s);
-                                }
-                            }
-                        }
-                    } else {
-                        s = (SessionImpl) req.session();
-                        this.server.sessions.put(s.id(), s);
-                    }
-
                     try {
                         if (!r.pathPattern.equals("/write")) {
                             ResponseImpl resp = new ResponseImpl();
                             Server.before((Request r1, Response r2) -> {}, req, resp);
-                            assert s != null;
-                            if (s.getCreatedAt() == s.getLastAccessedTime()) {
-                                resp.header("set-cookie", "SessionID="+s.id());
-                            } else {
-                                resp.header("cookie", "SessionID="+s.id());
-                            }
+
                             Object response = r.route.handle(req, resp);
+                            SessionImpl s = (SessionImpl) this.server.sessions.get(req.getSessionId());
+                            if (s != null) {
+                                if (s.getCreatedAt() == s.getLastAccessedTime()) {
+                                    resp.header("set-cookie", "SessionID=" + s.id());
+                                } else {
+                                    resp.header("cookie", "SessionID=" + s.id());
+                                }
+                            }
                             for (Map.Entry<String, String> entry : resp.headers.entrySet()) {
                                 exchange.getResponseHeaders().put(entry.getKey().toLowerCase(), new ArrayList<>(Collections.singletonList(entry.getValue())));
                             }

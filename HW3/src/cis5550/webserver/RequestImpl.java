@@ -17,6 +17,12 @@ class RequestImpl implements Request {
   byte bodyRaw[];
   Server server;
 
+  public String getSessionId() {
+    return sessionId;
+  }
+
+  String sessionId;
+
   RequestImpl(String methodArg, String urlArg, String protocolArg, Map<String,String> headersArg, Map<String,String> queryParamsArg, Map<String,String> paramsArg, InetSocketAddress remoteAddrArg, byte bodyRawArg[], Server serverArg) {
     method = methodArg;
     url = urlArg;
@@ -79,7 +85,35 @@ class RequestImpl implements Request {
   }
 
   public Session session() {
-    return new SessionImpl(1);
+    int defaultActiveInterval = 300;
+    SessionImpl s = null;
+    if (headers.containsKey("cookie")) {
+      String pair = headers.get("cookie");
+      String[] parts = pair.split("=");
+      if (parts.length == 2 && parts[0].equals("SessionID")) {
+        if (this.server.sessions.containsKey(parts[1])) {
+          s = (SessionImpl) this.server.sessions.get(parts[1]);
+          long now = System.currentTimeMillis();
+          if (s.getLastAccessedTime() < now - s.getAvailableInSecond()*1000L) {
+            String oldId = s.getId();
+            s = new SessionImpl(defaultActiveInterval);
+            this.server.sessions.remove(oldId);
+            this.server.sessions.put(s.getId(), s);
+          } else {
+            s.setLastAccessedTime(System.currentTimeMillis());
+          }
+        } else {
+          s = new SessionImpl(defaultActiveInterval);
+          this.server.sessions.put(s.id(), s);
+        }
+      }
+    } else {
+      s = new SessionImpl(defaultActiveInterval);;
+      this.server.sessions.put(s.id(), s);
+    }
+    assert s != null;
+    this.sessionId = s.getId();
+    return s;
   }
 
 }
