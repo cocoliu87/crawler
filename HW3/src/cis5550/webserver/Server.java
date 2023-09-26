@@ -78,6 +78,7 @@ public class Server implements Runnable {
         }
 
         // Running a periodical job to clean up session table
+        // this runnable should run every x minutes.
         new Thread(new Runnable() {
             @Override
             public void run() {

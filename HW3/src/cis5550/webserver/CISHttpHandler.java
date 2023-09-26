@@ -74,7 +74,7 @@ class CISHttpHandler implements HttpHandler {
                             Server.before((Request r1, Response r2) -> {}, req, resp);
 
                             Object response = r.route.handle(req, resp);
-                            SessionImpl s = (SessionImpl) this.server.sessions.get(req.getSessionId());
+                            SessionImpl s = (SessionImpl) this.server.sessions.getOrDefault(req.getSessionId(), null);
                             if (s != null) {
                                 if (s.getCreatedAt() == s.getLastAccessedTime()) {
                                     resp.header("set-cookie", "SessionID=" + s.id());
