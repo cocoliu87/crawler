@@ -1,11 +1,29 @@
 package cis5550.generic;
 
 public class Worker {
+    public int getPort() {
+        return port;
+    }
+
+    public String getIp() {
+        return ip;
+    }
+
+    public String getId() {
+        return id;
+    }
+
     int port;
     String ip;
-    public Worker(String ip, int port) {
+    String id;
+    long lastAccessTime;
+    long inActivatedWindow;
+    public Worker(String ip, int port, String id) {
         this.ip = ip;
         this.port = port;
+        this.id = id;
+        this.lastAccessTime = System.currentTimeMillis();
+        this.inActivatedWindow = 15 * 1000L;
     }
 
     public static void startPingThread() {
@@ -13,7 +31,7 @@ public class Worker {
     }
 
     public String toString(){
-        return this.ip+":"+String.valueOf(this.port);
+        return this.id+","+this.ip+":"+String.valueOf(this.port);
     }
 
 }
