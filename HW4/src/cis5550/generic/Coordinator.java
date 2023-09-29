@@ -85,7 +85,7 @@ public class Coordinator {
             @Override
             public void run() {
                 while (true) {
-                    System.out.println("periodic checking...");
+                    System.out.println("Coordinator is periodically checking...");
                     try {
                         // every 10 minutes, clean up the session table.
                         Thread.sleep(1000L);
