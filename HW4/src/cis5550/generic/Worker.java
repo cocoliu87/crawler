@@ -34,7 +34,7 @@ public class Worker {
         this.inActivatedWindow = 15 * 1000L;
     }
 
-    public static void startPingThread(String domain, String storage, int port) {
+    public static void startPingThread(String domain, String path, int port) {
         new Thread(new Runnable() {
             @Override
             public void run() {
@@ -42,26 +42,27 @@ public class Worker {
                     System.out.println("Coordinator is periodically checking...");
                     try {
                         Thread.sleep(5*1000L);
-                        File dir = new File(storage);
-                        if (!dir.exists()) {
-                            boolean success = dir.mkdirs();
-                            System.out.println("Creating directory succeeded? "+ success);
-                        }
-                        File f = new File(storage + "/id.txt");
-                        if (!f.exists()) {
-                            boolean success = f.createNewFile();
-                            System.out.println("Creating id file succeeded? "+ success);
+//                        File dir = new File(storage);
+//                        if (!dir.exists()) {
+//                            boolean success = dir.mkdirs();
+//                            System.out.println("Creating directory succeeded? "+ success);
+//                        }
+                        File f = new File(path);
+                        while (!f.exists()) {
+//                            boolean success = f.createNewFile();
+                            System.out.println("Waiting for file: "+path);
+                            Thread.sleep(100L);
                         }
                         Scanner r = new Scanner(f);
                         String id = "";
                         while (r.hasNextLine()) {
                             id = r.nextLine();
                         }
-                        String idReaded = id.isEmpty()? randomLetters(5) : id;
+//                        String idReaded = id.isEmpty()? randomLetters(5) : id;
                         FileWriter fw = new FileWriter(f);
-                        fw.write(idReaded);
+                        fw.write(id);
                         fw.close();
-                        URL url = new URL(String.format("http://%s/ping?id=%s&port=%d", domain, idReaded, port));
+                        URL url = new URL(String.format("http://%s/ping?id=%s&port=%d", domain, id, port));
                         System.out.println(url);
                         url.getContent();
                     } catch (InterruptedException | IOException e) {
@@ -76,7 +77,7 @@ public class Worker {
         return this.id+","+this.ip+":"+String.valueOf(this.port);
     }
 
-    private static String randomLetters(int number) {
+    protected static String randomLetters(int number) {
         StringBuilder s = new StringBuilder();
         char d = 'z' - 'a';
         while (number-- > 0) {
