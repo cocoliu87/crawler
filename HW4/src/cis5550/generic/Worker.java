@@ -1,9 +1,12 @@
 package cis5550.generic;
 
+import java.io.File;
+import java.io.FileWriter;
 import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.Random;
+import java.util.Scanner;
 
 public class Worker {
     public int getPort() {
@@ -31,7 +34,7 @@ public class Worker {
         this.inActivatedWindow = 15 * 1000L;
     }
 
-    public static void startPingThread(String domain, int port) {
+    public static void startPingThread(String domain, String storage, int port) {
         new Thread(new Runnable() {
             @Override
             public void run() {
@@ -39,8 +42,26 @@ public class Worker {
                     System.out.println("Coordinator is periodically checking...");
                     try {
                         Thread.sleep(5*1000L);
-                        String id = randomLetters(5);
-                        URL url = new URL(String.format("http://%s/ping?id=%s&port=%d", domain, id, port));
+                        File dir = new File(storage);
+                        if (!dir.exists()) {
+                            boolean success = dir.mkdirs();
+                            System.out.println("Creating directory succeeded? "+ success);
+                        }
+                        File f = new File(storage + "/id.txt");
+                        if (!f.exists()) {
+                            boolean success = f.createNewFile();
+                            System.out.println("Creating id file succeeded? "+ success);
+                        }
+                        Scanner r = new Scanner(f);
+                        String id = "";
+                        while (r.hasNextLine()) {
+                            id = r.nextLine();
+                        }
+                        String idReaded = id.isEmpty()? randomLetters(5) : id;
+                        FileWriter fw = new FileWriter(f);
+                        fw.write(idReaded);
+                        fw.close();
+                        URL url = new URL(String.format("http://%s/ping?id=%s&port=%d", domain, idReaded, port));
                         System.out.println(url);
                         url.getContent();
                     } catch (InterruptedException | IOException e) {

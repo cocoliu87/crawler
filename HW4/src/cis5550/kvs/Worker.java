@@ -15,6 +15,6 @@ public class Worker extends cis5550.generic.Worker {
         }
         int port = Integer.parseInt(args[0]);
         Server.port(port);
-        startPingThread(args[2], port);
+        startPingThread(args[2], args[1], port);
     }
 }
