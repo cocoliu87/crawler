@@ -8,6 +8,4 @@ public class Coordinator extends cis5550.generic.Coordinator {
         registerRoutes();
         startCleanupThread();
     }
-
-
 }

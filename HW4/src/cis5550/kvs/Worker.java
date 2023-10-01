@@ -1,5 +1,7 @@
 package cis5550.kvs;
 
+import cis5550.webserver.Request;
+import cis5550.webserver.Response;
 import cis5550.webserver.Server;
 
 import java.io.File;
@@ -33,41 +35,46 @@ public class Worker extends cis5550.generic.Worker {
         get();
     }
     private static void put() {
-        cis5550.webserver.Server.put("/data/:t/:r/:c", (request, response) -> {
-            Map<String, String> m = request.params();
-            String t = m.get("t");
-            String r = m.get("r");
-            String c = m.get("c");
-            assert t!=null;
-            if (tables.containsKey(m.get("t"))) {
-                Row row = tables.get(t).get(r);
-                row.put(c, request.bodyAsBytes());
-            } else {
-                Map<String, Row> entry = new HashMap<>();
-                Row row = new Row(c);
-                row.put(c, request.bodyAsBytes());
-                entry.put(r, row);
-                tables.put(t, entry);
-            }
-            response.status(200, "OK");
-            return "OK";
-        });
+        cis5550.webserver.Server.put("/data/:t/:r/:c", Worker::addEntryToTables);
     }
 
+    private static String addEntryToTables(Request request, Response response) {
+        Map<String, String> m = request.params();
+        String t = m.get("t");
+        String r = m.get("r");
+        String c = m.get("c");
+        assert t!=null;
+        if (tables.containsKey(m.get("t"))) {
+            Row row = tables.get(t).get(r);
+            row.put(c, request.bodyAsBytes());
+        } else {
+            Map<String, Row> entry = new HashMap<>();
+            Row row = new Row(c);
+            row.put(c, request.bodyAsBytes());
+            entry.put(r, row);
+            tables.put(t, entry);
+        }
+        response.status(200, "OK");
+        return "OK";
+    }
+
+
     private static void get() {
-        cis5550.webserver.Server.get("/data/:t/:r/:c", ((request, response) -> {
-            Map<String, String> m = request.params();
-            String t = m.get("t");
-            String r = m.get("r");
-            String c = m.get("c");
-            assert t!= null;
-            if (!tables.containsKey(t) || !tables.get(t).containsKey(r) || tables.get(t).get(r).get(c) == null) {
-                response.status(404, "Not Found");
-                return "404 Not Found";
-            }
-            response.bodyAsBytes(getRow(t, r, c));
-            return null;
-        }));
+        cis5550.webserver.Server.get("/data/:t/:r/:c", (Worker::getFromTables));
+    }
+
+    private static String getFromTables(Request request, Response response) {
+        Map<String, String> m = request.params();
+        String t = m.get("t");
+        String r = m.get("r");
+        String c = m.get("c");
+        assert t!= null;
+        if (!tables.containsKey(t) || !tables.get(t).containsKey(r) || tables.get(t).get(r).get(c) == null) {
+            response.status(404, "Not Found");
+            return "404 Not Found";
+        }
+        response.bodyAsBytes(getRow(t, r, c));
+        return null;
     }
 
     private static byte[] getRow(String t, String r, String c) {
