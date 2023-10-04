@@ -46,7 +46,14 @@ public class Worker extends cis5550.generic.Worker {
         assert t!=null;
         if (tables.containsKey(m.get("t"))) {
             Row row = tables.get(t).get(r);
-            if (row != null) row.put(c, request.bodyAsBytes());
+            if (row != null) {
+                row.put(c, request.bodyAsBytes());
+            } else {
+                Map<String, Row> table = tables.get(t);
+                row = new Row(c);
+                row.put(c, request.bodyAsBytes());
+                table.put(r, row);
+            }
         } else {
             Map<String, Row> entry = new HashMap<>();
             Row row = new Row(c);
