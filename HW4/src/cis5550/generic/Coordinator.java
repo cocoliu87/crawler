@@ -16,7 +16,9 @@ public class Coordinator {
     public static List<String> getWorkers() {
         List<String> strs = new ArrayList<>();
         for (Worker w: workers.values()) {
-            strs.add(w.toString());
+            if (w.lastAccessTime >= System.currentTimeMillis() - w.inActivatedWindow) {
+                strs.add(w.toString());
+            }
         }
         return strs;
     }
@@ -88,7 +90,7 @@ public class Coordinator {
                 while (true) {
                     System.out.println("Coordinator is periodically checking...");
                     try {
-                        // every 10 minutes, clean up the session table.
+                        // every minute, clean up the session table.
                         Thread.sleep(1000L);
                     } catch (InterruptedException e) {
                         System.out.println(e.toString());
