@@ -7,6 +7,10 @@ import cis5550.webserver.Server;
 
 import java.io.*;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.StandardCopyOption;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -36,6 +40,8 @@ public class Worker extends cis5550.generic.Worker {
 
     private static void put() {
         cis5550.webserver.Server.put("/data/:t/:r/:c", Worker::addEntryToTables);
+        cis5550.webserver.Server.put("/rename/:t", Worker::renameTable);
+        cis5550.webserver.Server.put("/delete/:t", Worker::deleteTable);
     }
 
     private static void get() {
@@ -44,6 +50,98 @@ public class Worker extends cis5550.generic.Worker {
         cis5550.webserver.Server.get("/view/:table", (Worker::viewTable));
         cis5550.webserver.Server.get("/data/:t/:r", (Worker::getFromTables));
         cis5550.webserver.Server.get("/data/:t", (Worker::getFromTables));
+        cis5550.webserver.Server.get("/count/:t", (Worker::getRowCountFromTables));
+    }
+
+    private static String deleteTable(Request request, Response response) {
+        Map<String, String> m = request.params();
+        String t = m.get("t");
+        if (t == null) {
+            response.status(404, "Not Found");
+            return "404 Not Found";
+        }
+        if (t.startsWith("pt-")) {
+            String dir = "__worker" + File.separator + t;
+            File tf = new File(dir);
+            if (!tf.exists() || !tf.isDirectory()) {
+                response.status(404, "Not Found");
+                return "404 Not Found";
+            } else {
+                deleteDirectory(tf);
+            }
+        } else {
+            Map<String, Row> oriTable = tables.get(t);
+            if (oriTable != null) {
+                System.out.println("Removing table: " + t);
+                tables.remove(t);
+            } else {
+                response.status(404, "Not Found");
+                return "404 Not Found";
+            }
+        }
+        response.status(200, "OK");
+        return "OK";
+    }
+
+    private static boolean deleteDirectory(File target) {
+        File[] files = target.listFiles();
+        if (files != null) {
+            for (File f: files) {
+                deleteDirectory(f);
+            }
+        }
+        return target.delete();
+    }
+
+    private static String renameTable(Request request, Response response) throws IOException {
+        Map<String, String> m = request.params();
+        String t = m.get("t");
+        if (t == null) {
+            response.status(404, "Not Found");
+            return "404 Not Found";
+        }
+        if (t.startsWith("pt-")) {
+            String dir = "__worker" + File.separator + t;
+            File tf = new File(dir);
+            if (!tf.exists() || !tf.isDirectory()) {
+                response.status(404, "Not Found");
+                return "404 Not Found";
+            } else {
+                String newFileDir = "__worker" + File.separator + request.body();
+                Path src = Paths.get(dir), dst = Paths.get(newFileDir);
+                Files.move(src, dst, StandardCopyOption.REPLACE_EXISTING);
+            }
+        } else {
+            Map<String, Row> oriTable = tables.get(t);
+            if (oriTable != null) {
+                tables.put(request.body(), oriTable);
+                tables.remove(t);
+            } else {
+                response.status(404, "Not Found");
+                return "404 Not Found";
+            }
+        }
+        response.status(200, "OK");
+        return "OK";
+    }
+
+    private static String getRowCountFromTables(Request request, Response response) {
+        Map<String, String> m = request.params();
+        String t = m.get("t");
+        assert t != null;
+        int count = 0;
+        if (t.startsWith("pt-")) {
+            String dir = "__worker" + File.separator + t;
+            File tf = new File(dir);
+            if (tf.isDirectory()) {
+                count = Objects.requireNonNull(tf.list()).length;
+            }
+        } else {
+            if (tables.containsKey(t)) {
+                count = tables.get(t).size();
+            }
+        }
+        return String.valueOf(count);
     }
 
     private static String addEntryToTables(Request request, Response response) {
@@ -52,7 +150,7 @@ public class Worker extends cis5550.generic.Worker {
         String r = m.get("r");
         String c = m.get("c");
         assert t!=null;
-        if (tables.containsKey(m.get("t"))) {
+        if (tables.containsKey(t)) {
             Row row = tables.get(t).get(r);
             if (row != null) {
                 row.put(c, request.bodyAsBytes());
@@ -175,6 +273,7 @@ public class Worker extends cis5550.generic.Worker {
     }
 
     private static byte[] getRow(String t, String r, String c) throws IOException {
+        System.out.println("Trying to get table: " + t);
         return t.startsWith("pt-")? getRowFromFile(t, r) : c.isEmpty()? tables.get(t).get(r).toByteArray() : tables.get(t).get(r).getBytes(c);
     }
 
