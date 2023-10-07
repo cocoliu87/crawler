@@ -42,6 +42,8 @@ public class Worker extends cis5550.generic.Worker {
         cis5550.webserver.Server.get("/data/:t/:r/:c", (Worker::getFromTables));
         cis5550.webserver.Server.get("/", (Worker::listTablesName));
         cis5550.webserver.Server.get("/view/:table", (Worker::viewTable));
+        cis5550.webserver.Server.get("/data/:t/:r", (Worker::getFromTables));
+        cis5550.webserver.Server.get("/data/:t", (Worker::getFromTables));
     }
 
     private static String addEntryToTables(Request request, Response response) {
@@ -157,23 +159,26 @@ public class Worker extends cis5550.generic.Worker {
 
     private static String getFromTables(Request request, Response response) throws IOException {
         Map<String, String> m = request.params();
-        String t = m.get("t");
-        String r = m.get("r");
-        String c = m.get("c");
-        assert t!= null;
-        if (!t.startsWith("pt-") && (!tables.containsKey(t) || !tables.get(t).containsKey(r) || tables.get(t).get(r).get(c) == null)) {
-            response.status(404, "Not Found");
-            return "404 Not Found";
+        String t = "", r = "", c = "";
+        if (m.containsKey("t")) t = m.get("t");
+        if (m.containsKey("r")) r = m.get("r");
+        if (m.containsKey("c")) c = m.get("c");
+
+        if (!t.isEmpty() && !r.isEmpty() && !c.isEmpty()) {
+            if (!t.startsWith("pt-") && (!tables.containsKey(t) || !tables.get(t).containsKey(r) || tables.get(t).get(r).get(c) == null)) {
+                response.status(404, "Not Found");
+                return "404 Not Found";
+            }
         }
         response.bodyAsBytes(getRow(t, r, c));
         return null;
     }
 
     private static byte[] getRow(String t, String r, String c) throws IOException {
-        return t.startsWith("pt-")? getRowFromFile(t, r, c) : tables.get(t).get(r).getBytes(c);
+        return t.startsWith("pt-")? getRowFromFile(t, r) : c.isEmpty()? tables.get(t).get(r).toByteArray() : tables.get(t).get(r).getBytes(c);
     }
 
-    private static byte[] getRowFromFile(String t, String r, String c) throws IOException {
+    private static byte[] getRowFromFile(String t, String r) throws IOException {
         String dir = "__worker" + File.separator + t + File.separator + r;
         File tf = new File(dir);
         byte[] bytes = null;

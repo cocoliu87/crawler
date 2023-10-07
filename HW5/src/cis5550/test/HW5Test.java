@@ -395,7 +395,7 @@ public class HW5Test extends GenericTest {
       testSucceeded();
     } catch (Exception e) { testFailed("An exception occurred: "+e, false); e.printStackTrace(); }
 
-    /*if (tests.contains("readrow")) try {
+    if (tests.contains("readrow")) try {
       startTest("readrow", "Whole-row read", 5);
 
       String thetable = randomAlphaNum(3,4);
@@ -442,7 +442,7 @@ public class HW5Test extends GenericTest {
       testSucceeded();
     } catch (Exception e) { testFailed("An exception occurred: "+e, false); e.printStackTrace(); }
 
-    if (tests.contains("rstream")) try {
+    /*if (tests.contains("rstream")) try {
       startTest("rstream", "Streaming read", 10);
 
       String thetable = randomAlphaNum(3,4);
