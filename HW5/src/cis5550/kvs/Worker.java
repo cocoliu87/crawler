@@ -155,13 +155,13 @@ public class Worker extends cis5550.generic.Worker {
         return html.toString();
     }
 
-    private static String getFromTables(Request request, Response response) {
+    private static String getFromTables(Request request, Response response) throws IOException {
         Map<String, String> m = request.params();
         String t = m.get("t");
         String r = m.get("r");
         String c = m.get("c");
         assert t!= null;
-        if (!tables.containsKey(t) || !tables.get(t).containsKey(r) || tables.get(t).get(r).get(c) == null) {
+        if (!t.startsWith("pt-") && (!tables.containsKey(t) || !tables.get(t).containsKey(r) || tables.get(t).get(r).get(c) == null)) {
             response.status(404, "Not Found");
             return "404 Not Found";
         }
@@ -169,8 +169,26 @@ public class Worker extends cis5550.generic.Worker {
         return null;
     }
 
-    private static byte[] getRow(String t, String r, String c) {
-        return tables.get(t).get(r).getBytes(c);
+    private static byte[] getRow(String t, String r, String c) throws IOException {
+        return t.startsWith("pt-")? getRowFromFile(t, r, c) : tables.get(t).get(r).getBytes(c);
+    }
+
+    private static byte[] getRowFromFile(String t, String r, String c) throws IOException {
+        String dir = "__worker" + File.separator + t + File.separator + r;
+        File tf = new File(dir);
+        byte[] bytes = null;
+        if (!tf.isFile() || !tf.exists() || !tf.canRead()) {
+            logger.error("the required file is not valid. file path is " + tf.getPath());
+            return null;
+        } else {
+            FileInputStream inputStream = new FileInputStream(tf);
+            bytes = inputStream.readAllBytes();
+            inputStream.close();
+        }
+        assert bytes != null;
+        String info = new String(bytes, StandardCharsets.UTF_8);
+        String[] cols = info.split("\\s+");
+        return cols[cols.length-1].getBytes();
     }
 
     private static void createFile(String dir) throws IOException {

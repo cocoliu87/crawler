@@ -130,7 +130,7 @@ public class HW5Test extends GenericTest {
       testSucceeded();
     } catch (Exception e) { testFailed("An exception occurred: "+e, false); e.printStackTrace(); }
 
-    /*if (tests.contains("rdisk")) try {
+    if (tests.contains("rdisk")) try {
       startTest("rdisk", "Reading from disk", 5);
 
       Socket s = openSocket(8001);
@@ -211,7 +211,7 @@ public class HW5Test extends GenericTest {
       testSucceeded();
     } catch (Exception e) { testFailed("An exception occurred: "+e, false); e.printStackTrace(); }
 
-    if (tests.contains("delete")) try {
+    /*if (tests.contains("delete")) try {
       startTest("delete", "Deleting a table", 5);
 
       String table1 = randomAlphaNum(3,4);
