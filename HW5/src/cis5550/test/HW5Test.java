@@ -211,7 +211,7 @@ public class HW5Test extends GenericTest {
       testSucceeded();
     } catch (Exception e) { testFailed("An exception occurred: "+e, false); e.printStackTrace(); }
 
-    /*if (tests.contains("delete")) try {
+    if (tests.contains("delete")) try {
       startTest("delete", "Deleting a table", 5);
 
       String table1 = randomAlphaNum(3,4);
@@ -310,7 +310,7 @@ public class HW5Test extends GenericTest {
         testFailed("We created a row '"+row2b+"' in persistent table '"+table2+"' and then deleted this table, but the file "+idf.getAbsolutePath()+" still exists - it should have been deleted.");
 
       testSucceeded();
-    } catch (Exception e) { testFailed("An exception occurred: "+e, false); e.printStackTrace(); } */
+    } catch (Exception e) { testFailed("An exception occurred: "+e, false); e.printStackTrace(); }
 
     if (tests.contains("tablist")) try {
       startTest("tablist", "List of tables", 5);

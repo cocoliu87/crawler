@@ -262,12 +262,24 @@ public class Worker extends cis5550.generic.Worker {
         if (m.containsKey("r")) r = m.get("r");
         if (m.containsKey("c")) c = m.get("c");
 
-        if (!t.isEmpty() && !r.isEmpty() && !c.isEmpty()) {
-            if (!t.startsWith("pt-") && (!tables.containsKey(t) || !tables.get(t).containsKey(r) || tables.get(t).get(r).get(c) == null)) {
+        if (!t.startsWith("pt-")) {
+            if (t.isEmpty()) {
+                response.status(400, "Bad Request");
+                return "400 Bad Request";
+            }
+            if (!tables.containsKey(t)) {
                 response.status(404, "Not Found");
                 return "404 Not Found";
             }
+
+            if (!r.isEmpty() && !c.isEmpty()) {
+                if (!tables.get(t).containsKey(r) || tables.get(t).get(r).get(c) == null) {
+                    response.status(404, "Not Found");
+                    return "404 Not Found";
+                }
+            }
         }
+
         response.bodyAsBytes(getRow(t, r, c));
         return null;
     }
