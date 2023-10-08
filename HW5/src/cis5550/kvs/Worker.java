@@ -207,19 +207,20 @@ public class Worker extends cis5550.generic.Worker {
             response.status(404, "Not Found");
             return "Not Found";
         }
-        Set<String> params = request.queryParams();
+        return viewTableWithPagination(request, response);
+/*        Set<String> params = request.queryParams();
         if (params != null && !params.isEmpty()) {
             return viewTableWithPagination(request, response);
         } else {
             return viewTableWithoutPagination(request, response);
-        }
+        }*/
     }
 
     private static String viewTableWithPagination(Request request, Response response) {
         String tableName = request.params("table");
-        TreeMap<String, Row> sortedTables = new TreeMap<>(tables.get(tableName));
+        TreeMap<String, Row> sortedTable = new TreeMap<>(tables.get(tableName));
         String from = request.queryParams("fromRow");
-        int fromRow = from == null || from.isEmpty() || Integer.parseInt(from) < 0 ? 10 : Integer.parseInt(from);
+        int fromRow = from == null || from.isEmpty() || Integer.parseInt(from) < 0 ? 0 : Integer.parseInt(from);
 
         StringBuilder html = new StringBuilder();
         html.append("<!DOCTYPE html>\n")
@@ -230,15 +231,13 @@ public class Worker extends cis5550.generic.Worker {
         boolean addHeader = false;
 
         int idx = -1;
-        int next = -1;
-        for (Map.Entry<String, Row> entry: sortedTables.entrySet()) {
+        for (Map.Entry<String, Row> entry: sortedTable.entrySet()) {
             idx++;
             if (idx < fromRow) {
                 continue;
             }
 
             if (idx >= fromRow + 10) {
-                next = idx;
                 break;
             }
 
@@ -263,9 +262,12 @@ public class Worker extends cis5550.generic.Worker {
                 html.append("</tr>\n");
             }
         }
-        String url = request.url() + "?fromRow=" + next;
+
         html.append("</table>\n");
-        html.append("<a href=\"").append(url).append("\">").append("Next").append("</a>");
+        if (fromRow + 10 <= sortedTable.size()) {
+            String url = request.url() + "?fromRow=" + (fromRow+10);
+            html.append("<a href=\"").append(url).append("\">").append("Next").append("</a>");
+        }
         html.append("</body>\n").append("</html>");
         return html.toString();
     }
