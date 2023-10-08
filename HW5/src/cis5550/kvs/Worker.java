@@ -537,20 +537,21 @@ public class Worker extends cis5550.generic.Worker {
     }
 
     private static void createFile(String dir) throws IOException {
-        File d = new File(dir);
-        if (!d.exists()) {
-            boolean success = d.mkdirs();
+        File f = new File(dir);
+        if (!f.exists()) {
+            boolean success = f.mkdirs();
             System.out.println("Creating directory succeeded? "+ success);
-        } else {
+        }
+/*        else {
             for (File f: Objects.requireNonNull(d.listFiles())) {
                 f.delete();
             }
             d.delete();
-        }
-        File f = new File(dir);
+        }*/
+/*        File f = new File(dir);
         if (!f.exists()) {
             f.mkdirs();
-        }
+        }*/
         f = new File(dir+"/id");
         if (!f.exists()) {
             boolean success = f.createNewFile();
