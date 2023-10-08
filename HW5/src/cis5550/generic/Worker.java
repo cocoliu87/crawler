@@ -45,7 +45,7 @@ public class Worker {
 
                         File f = new File(path);
                         while (!f.exists()) {
-//                            boolean success = f.createNewFile();
+                            f.createNewFile();
                             System.out.println("Waiting for file: "+path);
                             Thread.sleep(100L);
                         }
