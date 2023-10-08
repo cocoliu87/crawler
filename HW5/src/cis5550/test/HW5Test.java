@@ -255,7 +255,7 @@ public class HW5Test extends GenericTest {
       if (!f.exists())
         testFailed("We created a persistent table called '"+table2+"' and PUT a row '"+row2b+"' into it, but there is no file called "+f.getAbsolutePath()); 
 
-      //*//* Check whether we can delete tables *//*
+      /* Check whether we can delete tables */
 
       s = openSocket(8001);
       out = new PrintWriter(s.getOutputStream());
@@ -442,7 +442,7 @@ public class HW5Test extends GenericTest {
       testSucceeded();
     } catch (Exception e) { testFailed("An exception occurred: "+e, false); e.printStackTrace(); }
 
-    /*if (tests.contains("rstream")) try {
+    if (tests.contains("rstream")) try {
       startTest("rstream", "Streaming read", 10);
 
       String thetable = randomAlphaNum(3,4);
@@ -488,7 +488,7 @@ public class HW5Test extends GenericTest {
         testFailed("In the response to our streaming GET /"+thetable+", we expected to see one of the following:\n\n"+dump(option1.getBytes())+"\n"+dump(option2.getBytes())+"\nbut we didn't. Here is what was in the body instead:\n\n"+dump(r.body));
 
       testSucceeded();
-    } catch (Exception e) { testFailed("An exception occurred: "+e, false); e.printStackTrace(); } */
+    } catch (Exception e) { testFailed("An exception occurred: "+e, false); e.printStackTrace(); }
 
     if (tests.contains("rename")) try {
       startTest("rename", "Rename a table", 5);
@@ -580,7 +580,7 @@ public class HW5Test extends GenericTest {
       testSucceeded();
     } catch (Exception e) { testFailed("An exception occurred: "+e, false); e.printStackTrace(); }
 
-    /*if (tests.contains("pages")) try {
+    if (tests.contains("pages")) try {
       startTest("pages", "Paginated user interface", 5);
       String thetable = randomAlphaNum(3,4);
       int num = 50+(new Random()).nextInt(100);
@@ -653,7 +653,7 @@ public class HW5Test extends GenericTest {
 
       testSucceeded();
     } catch (Exception e) { testFailed("An exception occurred: "+e, false); e.printStackTrace(); }
-*/
+
 
     System.out.println("--------------------------------------------------------\n");
     if (numTestsFailed == 0)

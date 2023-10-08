@@ -156,7 +156,7 @@ public class Worker extends cis5550.generic.Worker {
                 row.put(c, request.bodyAsBytes());
             } else {
                 Map<String, Row> table = tables.get(t);
-                row = new Row(c);
+                row = new Row(r);
                 row.put(c, request.bodyAsBytes());
                 table.put(r, row);
             }
@@ -202,6 +202,74 @@ public class Worker extends cis5550.generic.Worker {
     }
 
     private static String viewTable(Request request, Response response) {
+        String tableName = request.params("table");
+        if (tables.get(tableName) == null) {
+            response.status(404, "Not Found");
+            return "Not Found";
+        }
+        Set<String> params = request.queryParams();
+        if (params != null && !params.isEmpty()) {
+            return viewTableWithPagination(request, response);
+        } else {
+            return viewTableWithoutPagination(request, response);
+        }
+    }
+
+    private static String viewTableWithPagination(Request request, Response response) {
+        String tableName = request.params("table");
+        TreeMap<String, Row> sortedTables = new TreeMap<>(tables.get(tableName));
+        String from = request.queryParams("fromRow");
+        int fromRow = from == null || from.isEmpty() || Integer.parseInt(from) < 0 ? 10 : Integer.parseInt(from);
+
+        StringBuilder html = new StringBuilder();
+        html.append("<!DOCTYPE html>\n")
+                .append("<html>\n")
+                .append("<body>\n");
+        html.append("<h1>").append(tableName).append("</h1>\n");
+        html.append("<table>\n");
+        boolean addHeader = false;
+
+        int idx = -1;
+        int next = -1;
+        for (Map.Entry<String, Row> entry: sortedTables.entrySet()) {
+            idx++;
+            if (idx < fromRow) {
+                continue;
+            }
+
+            if (idx >= fromRow + 10) {
+                next = idx;
+                break;
+            }
+
+            if (entry.getKey() != null) {
+                if (!addHeader) {
+                    html.append("<tr>\n<th>").append("RowID\n").append("</th>\n");
+                    for (String c: entry.getValue().columns()) {
+                        html.append("<th>").append(c).append("</th>\n");
+                    }
+                    addHeader = true;
+                }
+
+                html.append("<tr>\n")
+                        .append("<td>")
+                        .append(entry.getKey())
+                        .append("</td>\n");
+                for (String c: entry.getValue().columns()) {
+                    html.append("<td>")
+                            .append(new String(entry.getValue().getBytes(c), StandardCharsets.UTF_8))
+                            .append("</td>\n");
+                }
+                html.append("</tr>\n");
+            }
+        }
+        String url = request.url() + "?fromRow=" + next;
+        html.append("</table>\n");
+        html.append("<a href=\"").append(url).append("\">").append("Next").append("</a>");
+        html.append("</body>\n").append("</html>");
+        return html.toString();
+    }
+    private static String viewTableWithoutPagination(Request request, Response response) {
         StringBuilder html = new StringBuilder();
         html.append("<!DOCTYPE html>\n")
                 .append("<html>\n")
@@ -215,17 +283,17 @@ public class Worker extends cis5550.generic.Worker {
                 if (!addHeader) {
                     html.append("<tr>\n<th>").append("RowID\n").append("</th>\n");
                     for (String c: entry.getValue().columns()) {
-                        html.append("<th>").append(c).append("/th\n");
+                        html.append("<th>").append(c).append("</th>\n");
                     }
                     addHeader = true;
                 }
 
                 html.append("<tr>\n")
-                    .append("<td>")
-                    .append(entry.getKey())
-                    .append("</td>\n");
+                        .append("<td>")
+                        .append(entry.getKey())
+                        .append("</td>\n");
                 for (String c: entry.getValue().columns()) {
-                        html.append("<td>")
+                    html.append("<td>")
                             .append(new String(entry.getValue().getBytes(c), StandardCharsets.UTF_8))
                             .append("</td>\n");
                 }
@@ -279,9 +347,87 @@ public class Worker extends cis5550.generic.Worker {
                 }
             }
         }
+        if (r == null || r.isEmpty()) {
+            try {
+                writeToStream(request, response, t);
+            } catch (Exception e) {
+                logger.error("writing to stream had error", e);
+            }
+        } else {
+            response.bodyAsBytes(getRow(t, r, c));
+        }
 
-        response.bodyAsBytes(getRow(t, r, c));
         return null;
+    }
+
+    private static void writeToStream(Request request, Response response, String t) throws Exception {
+        String from = request.queryParams("startRow"), end = request.queryParams("endRowExclusive");
+        int fromRow = -1;
+        int endRow = -1;
+        if (from != null && !from.isEmpty() && end != null && !end.isEmpty())
+        {
+            fromRow = Integer.parseInt(from);
+            endRow = Integer.parseInt(end);
+        }
+        if (t.startsWith("pt-")) {
+            String dir = "__worker" + File.separator + t;
+            File tf = new File(dir);
+            if (!tf.exists() || !tf.isDirectory()) {
+                response.status(404, "Not Found");
+                response.body("Not Found");
+                return;
+            }
+            int len = Objects.requireNonNull(tf.listFiles()).length;
+            for (File rf: Objects.requireNonNull(tf.listFiles())) {
+                len --;
+                if (!rf.exists()) continue;
+                FileInputStream is = new FileInputStream(rf);
+                byte[] bytes = is.readAllBytes();
+
+                if (len == 0) {
+                    byte[] newbytes = new byte[bytes.length + 2];
+                    System.arraycopy(bytes, 0, newbytes, 0, bytes.length);
+                    newbytes[bytes.length] = (byte)10;
+                    newbytes[bytes.length+1] = (byte)10;
+                    response.write(newbytes);
+                } else {
+                    byte[] newbytes = new byte[bytes.length + 1];
+                    System.arraycopy(bytes, 0, newbytes, 0, bytes.length);
+                    newbytes[bytes.length] = (byte)13;
+                    response.write(newbytes);
+                }
+            }
+        } else {
+            Map<String, Row> table = tables.get(t);
+            if (table == null) {
+                response.status(404, "Not Found");
+                response.body("Not Found");
+                return;
+            }
+            int rows = table.size();
+            for (Map.Entry<String, Row> entry: table.entrySet()) {
+                rows--;
+                byte[] bytes = entry.getValue().toByteArray();
+                if (rows == 0) {
+                    byte[] newbytes = new byte[bytes.length + 2];
+                    System.arraycopy(bytes, 0, newbytes, 0, bytes.length);
+                    newbytes[bytes.length] = (byte)10;
+                    newbytes[bytes.length+1] = (byte)10;
+                    response.write(newbytes);
+                } else {
+                    byte[] newbytes = new byte[bytes.length + 1];
+                    System.arraycopy(bytes, 0, newbytes, 0, bytes.length);
+                    newbytes[bytes.length] = (byte)10;
+                    response.write(newbytes);
+                }
+                //response.write(value);
+/*                if (rows == 0) {
+                    response.write(value.concat("\r\n").getBytes(StandardCharsets.UTF_8));
+                } else {
+                    response.write(value.concat("\n").getBytes(StandardCharsets.UTF_8));
+                }*/
+            }
+        }
     }
 
     private static byte[] getRow(String t, String r, String c) throws IOException {
