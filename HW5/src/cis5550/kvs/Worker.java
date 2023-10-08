@@ -264,9 +264,12 @@ public class Worker extends cis5550.generic.Worker {
         }
 
         html.append("</table>\n");
+/*        String prevUrl = request.url() + "?fromRow=" + (fromRow-10);
+        html.append("<a href=\"").append(prevUrl).append("\">").append("Prev").append("</a>");
+        html.append("&nbsp");*/
         if (fromRow + 10 <= sortedTable.size()) {
-            String url = request.url() + "?fromRow=" + (fromRow+10);
-            html.append("<a href=\"").append(url).append("\">").append("Next").append("</a>");
+            String nextUrl = request.url() + "?fromRow=" + (fromRow+10);
+            html.append("<a href=\"").append(nextUrl).append("\">").append("Next").append("</a>");
         }
         html.append("</body>\n").append("</html>");
         return html.toString();
