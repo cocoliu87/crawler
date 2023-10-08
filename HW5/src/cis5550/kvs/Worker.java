@@ -1,5 +1,6 @@
 package cis5550.kvs;
 
+import cis5550.tools.KeyEncoder;
 import cis5550.tools.Logger;
 import cis5550.webserver.Request;
 import cis5550.webserver.Response;
@@ -46,7 +47,8 @@ public class Worker extends cis5550.generic.Worker {
 
     private static void get() {
         cis5550.webserver.Server.get("/data/:t/:r/:c", (Worker::getFromTables));
-        cis5550.webserver.Server.get("/", (Worker::listTablesName));
+        cis5550.webserver.Server.get("/", (Worker::listTablesNameHtml));
+        cis5550.webserver.Server.get("/tables", (Worker::listTablesName));
         cis5550.webserver.Server.get("/view/:table", (Worker::viewTable));
         cis5550.webserver.Server.get("/data/:t/:r", (Worker::getFromTables));
         cis5550.webserver.Server.get("/data/:t", (Worker::getFromTables));
@@ -150,6 +152,7 @@ public class Worker extends cis5550.generic.Worker {
         String r = m.get("r");
         String c = m.get("c");
         assert t!=null;
+
         if (tables.containsKey(t)) {
             Row row = tables.get(t).get(r);
             if (row != null) {
@@ -168,7 +171,7 @@ public class Worker extends cis5550.generic.Worker {
             tables.put(t, entry);
         }
 
-        if (t.startsWith("pt-")) {
+        if (t.startsWith("pt-")){
             String dir = "__worker" + File.separator + t;
             File tf = new File(dir);
             if (!tf.exists()) {
@@ -180,7 +183,7 @@ public class Worker extends cis5550.generic.Worker {
 
             for (Map.Entry<String, Row> entry: tables.get(t).entrySet()) {
                 if (entry.getKey() != null) {
-                    File rf = new File(dir + File.separator + entry.getKey());
+                    File rf = new File(dir + File.separator + KeyEncoder.encode(entry.getValue().key()));
                     try {
                         if (rf.exists()) {
                             rf.delete();
@@ -195,6 +198,8 @@ public class Worker extends cis5550.generic.Worker {
                     }
                 }
             }
+            // don't save the static file in memory
+            tables.remove(t);
         }
 
         response.status(200, "OK");
@@ -203,10 +208,11 @@ public class Worker extends cis5550.generic.Worker {
 
     private static String viewTable(Request request, Response response) {
         String tableName = request.params("table");
-        if (tables.get(tableName) == null) {
+        if (!tableName.startsWith("pt-") && tables.get(tableName) == null) {
             response.status(404, "Not Found");
             return "Not Found";
         }
+        response.header("content-type", "text/html");
         return viewTableWithPagination(request, response);
 /*        Set<String> params = request.queryParams();
         if (params != null && !params.isEmpty()) {
@@ -218,7 +224,41 @@ public class Worker extends cis5550.generic.Worker {
 
     private static String viewTableWithPagination(Request request, Response response) {
         String tableName = request.params("table");
-        TreeMap<String, Row> sortedTable = new TreeMap<>(tables.get(tableName));
+
+        TreeMap<String, Row> sortedTable = new TreeMap<>();
+        if (tableName.startsWith("pt-")) {
+            String dir = "__worker" + File.separator + tableName;
+            File tf = new File(dir);
+            if (tf.exists() && tf.isDirectory()) {
+                File[] files = tf.listFiles();
+                assert files != null;
+                for (File f: files) {
+                    if (f.exists() && f.canRead()) {
+                        try {
+                            FileInputStream is = new FileInputStream(f);
+                            Row r = Row.readFrom(is);
+                            if (r != null) sortedTable.put(r.key(), r);
+                        } catch (FileNotFoundException e) {
+                            logger.error("tableview couldn't find the file/row", e);
+                        } catch (Exception e) {
+                            throw new RuntimeException(e);
+                        }
+
+                    }
+                }
+            }
+        }
+
+        if (sortedTable.isEmpty()) {
+            Map<String, Row> table = tables.get(tableName);
+            if (table != null) {
+                sortedTable = new TreeMap<>(table);
+            } else {
+                response.status(404, "Not Found");
+                return "Not Found";
+            }
+        }
+
         String from = request.queryParams("fromRow");
         int fromRow = from == null || from.isEmpty() || Integer.parseInt(from) < 0 ? 0 : Integer.parseInt(from);
 
@@ -243,18 +283,24 @@ public class Worker extends cis5550.generic.Worker {
 
             if (entry.getKey() != null) {
                 if (!addHeader) {
-                    html.append("<tr>\n<th>").append("RowID\n").append("</th>\n");
-                    for (String c: entry.getValue().columns()) {
+                    html.append("<tr>\n<th>").append("Row Key\n").append("</th>\n");
+                    /*for (String c: entry.getValue().columns()) {
                         html.append("<th>").append(c).append("</th>\n");
-                    }
+                    }*/
+                    html.append("<th>").append("Column Name\n").append("</th>\n");
+                    html.append("<th>").append("Value\n").append("</th>\n");
                     addHeader = true;
                 }
 
-                html.append("<tr>\n")
-                        .append("<td>")
-                        .append(entry.getKey())
-                        .append("</td>\n");
                 for (String c: entry.getValue().columns()) {
+                    // add row key
+                    html.append("<tr>\n")
+                            .append("<td>")
+                            .append(entry.getKey())
+                            .append("</td>\n");
+                    // add column name
+                    html.append("<td>").append(c).append("</td>\n");
+                    // add value
                     html.append("<td>")
                             .append(new String(entry.getValue().getBytes(c), StandardCharsets.UTF_8))
                             .append("</td>\n");
@@ -267,7 +313,7 @@ public class Worker extends cis5550.generic.Worker {
 /*        String prevUrl = request.url() + "?fromRow=" + (fromRow-10);
         html.append("<a href=\"").append(prevUrl).append("\">").append("Prev").append("</a>");
         html.append("&nbsp");*/
-        if (fromRow + 10 <= sortedTable.size()) {
+        if (fromRow + 10 < sortedTable.size()) {
             String nextUrl = request.url() + "?fromRow=" + (fromRow+10);
             html.append("<a href=\"").append(nextUrl).append("\">").append("Next").append("</a>");
         }
@@ -310,22 +356,54 @@ public class Worker extends cis5550.generic.Worker {
         return html.toString();
     }
 
-    private static String listTablesName(Request request, Response response) {
+    private static String listTablesNameHtml(Request request, Response response) {
         StringBuilder html = new StringBuilder();
         html.append("<!DOCTYPE html>\n")
                 .append("<html>\n")
                 .append("<body>\n");
         html.append("<table>\n");
         for (String name: tables.keySet()) {
+            String link = request.url() + "/view/" + name;
             html.append("<tr>\n")
-                    .append("<td>\n")
-                    .append(name)
+                    .append("<td>")
+                    .append("<a href=\"").append(link).append("\">").append(name).append("</a>")
                     .append("</td>\n")
+                    .append("<td>").append(tables.get(name).size()).append("<td>\n")
+                    .append("</tr>\n");
+        }
+        for (File f: Objects.requireNonNull(new File("__worker").listFiles())) {
+            String link = request.url() + "view/" + f.getName();
+            int rowCount = 0;
+            if (f.isDirectory()) {
+                rowCount = Objects.requireNonNull(f.listFiles()).length;
+            }
+            html.append("<tr>\n")
+                    .append("<td>")
+                    .append("<a href=\"").append(link).append("\">").append(f.getName()).append("</a>")
+                    .append("</td>\n")
+                    .append("<td>").append(rowCount).append("<td>\n")
                     .append("</tr>\n");
         }
         html.append("</table>\n");
         html.append("</body>\n").append("</html>");
+        response.header("content-type", "text/html");
         return html.toString();
+    }
+
+    private static String listTablesName(Request request, Response response) {
+        StringBuilder txt = new StringBuilder();
+        for (String name: tables.keySet()) {
+            txt.append(name).append("\n");
+        }
+        String dir = "__worker";
+        File files = new File(dir);
+        for (File f: Objects.requireNonNull(files.listFiles())) {
+            if (f != null && f.exists()) {
+                txt.append(f.getName()).append("\n");
+            }
+        }
+        response.header("content-type", "text/plain");
+        return txt.toString();
     }
 
     private static String getFromTables(Request request, Response response) throws IOException {
@@ -487,5 +565,15 @@ public class Worker extends cis5550.generic.Worker {
         FileWriter fw = new FileWriter(f);
         fw.write(idReaded);
         fw.close();
+    }
+
+    private static int getLineCountFromFile(File f) throws IOException {
+        BufferedReader reader = new BufferedReader(new FileReader(f));
+        int lines = 0;
+        while (reader.readLine() != null) {
+            lines++;
+        }
+        reader.close();
+        return lines;
     }
 }
