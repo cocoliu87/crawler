@@ -465,14 +465,14 @@ public class Worker extends cis5550.generic.Worker {
 
             for (File rf : files) {
                 len--;
-/*                if (!rf.exists() || rf.getName().compareTo(from) < 0) continue;
-                if (!end.isEmpty() && rf.getName().compareTo(end) >= 0) {
+                if (!rf.exists() || (from != null && rf.getName().compareTo(from) < 0)) continue;
+                if (end != null && !end.isEmpty() && rf.getName().compareTo(end) >= 0) {
                     byte[] newbytes = new byte[2];
                     newbytes[0] = (byte) 10;
                     newbytes[1] = (byte) 10;
                     response.write(newbytes);
                     break;
-                }*/
+                }
 
                 FileInputStream is = new FileInputStream(rf);
                 byte[] bytes = is.readAllBytes();
@@ -503,14 +503,14 @@ public class Worker extends cis5550.generic.Worker {
             for (Map.Entry<String, Row> entry: table.entrySet()) {
                 String rowKey = entry.getKey();
                 rows--;
-/*                if (rowKey == null || rowKey.compareTo(from) < 0) continue;
-                if (!end.isEmpty() && rowKey.compareTo(end) >= 0) {
+                if (rowKey == null || (from != null && rowKey.compareTo(from) < 0)) continue;
+                if (end != null && !end.isEmpty() && rowKey.compareTo(end) >= 0) {
                     byte[] newbytes = new byte[2];
                     newbytes[0] = (byte) 10;
                     newbytes[1] = (byte) 10;
                     response.write(newbytes);
                     break;
-                }*/
+                }
 
                 byte[] bytes = entry.getValue().toByteArray();
                 if (rows == 0) {
