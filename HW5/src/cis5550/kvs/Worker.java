@@ -402,6 +402,11 @@ public class Worker extends cis5550.generic.Worker {
                 txt.append(f.getName()).append("\n");
             }
         }
+
+        if (txt.isEmpty()) {
+            response.status(404, "Not Found");
+            return "Not Found";
+        }
         response.header("content-type", "text/plain");
         return txt.toString();
     }
@@ -445,13 +450,7 @@ public class Worker extends cis5550.generic.Worker {
 
     private static void writeToStream(Request request, Response response, String t) throws Exception {
         String from = request.queryParams("startRow"), end = request.queryParams("endRowExclusive");
-        int fromRow = -1;
-        int endRow = -1;
-        if (from != null && !from.isEmpty() && end != null && !end.isEmpty())
-        {
-            fromRow = Integer.parseInt(from);
-            endRow = Integer.parseInt(end);
-        }
+
         if (t.startsWith("pt-")) {
             String dir = "__worker" + File.separator + t;
             File tf = new File(dir);
@@ -461,22 +460,33 @@ public class Worker extends cis5550.generic.Worker {
                 return;
             }
             int len = Objects.requireNonNull(tf.listFiles()).length;
-            for (File rf: Objects.requireNonNull(tf.listFiles())) {
-                len --;
-                if (!rf.exists()) continue;
+            List<File> files = Arrays.asList(Objects.requireNonNull(tf.listFiles()));
+            Collections.sort(files);
+
+            for (File rf : files) {
+                len--;
+/*                if (!rf.exists() || rf.getName().compareTo(from) < 0) continue;
+                if (!end.isEmpty() && rf.getName().compareTo(end) >= 0) {
+                    byte[] newbytes = new byte[2];
+                    newbytes[0] = (byte) 10;
+                    newbytes[1] = (byte) 10;
+                    response.write(newbytes);
+                    break;
+                }*/
+
                 FileInputStream is = new FileInputStream(rf);
                 byte[] bytes = is.readAllBytes();
 
                 if (len == 0) {
                     byte[] newbytes = new byte[bytes.length + 2];
                     System.arraycopy(bytes, 0, newbytes, 0, bytes.length);
-                    newbytes[bytes.length] = (byte)10;
-                    newbytes[bytes.length+1] = (byte)10;
+                    newbytes[bytes.length] = (byte) 10;
+                    newbytes[bytes.length + 1] = (byte) 10;
                     response.write(newbytes);
                 } else {
                     byte[] newbytes = new byte[bytes.length + 1];
                     System.arraycopy(bytes, 0, newbytes, 0, bytes.length);
-                    newbytes[bytes.length] = (byte)13;
+                    newbytes[bytes.length] = (byte) 13;
                     response.write(newbytes);
                 }
             }
@@ -487,9 +497,21 @@ public class Worker extends cis5550.generic.Worker {
                 response.body("Not Found");
                 return;
             }
+            table = new TreeMap<>(table);
             int rows = table.size();
+
             for (Map.Entry<String, Row> entry: table.entrySet()) {
+                String rowKey = entry.getKey();
                 rows--;
+/*                if (rowKey == null || rowKey.compareTo(from) < 0) continue;
+                if (!end.isEmpty() && rowKey.compareTo(end) >= 0) {
+                    byte[] newbytes = new byte[2];
+                    newbytes[0] = (byte) 10;
+                    newbytes[1] = (byte) 10;
+                    response.write(newbytes);
+                    break;
+                }*/
+
                 byte[] bytes = entry.getValue().toByteArray();
                 if (rows == 0) {
                     byte[] newbytes = new byte[bytes.length + 2];
