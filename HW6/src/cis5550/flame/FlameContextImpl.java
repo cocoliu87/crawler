@@ -46,7 +46,7 @@ public class FlameContextImpl implements FlameContext {
         return new FlameRDDImpl(kvsClient, this, tableName);
     }
 
-    public boolean invokeOperation(String ops, byte[] lambda, String inputTable, String outputTable) throws IOException {
+    public boolean invokeOperation(String ops, byte[] lambda, String inputTable, String outputTable, String accumulator) throws IOException {
         //String outputTable = UUID.randomUUID().toString();
         Partitioner p = new Partitioner();
 
@@ -75,6 +75,7 @@ public class FlameContextImpl implements FlameContext {
             if (pp.fromKey != null) requestParams.put("fromRow", pp.fromKey);
             if (pp.toKeyExclusive != null) requestParams.put("toRow", pp.toKeyExclusive);
             requestParams.put("coordinator", kvsClient.getCoordinator());
+            if (accumulator != null) requestParams.put("accu", accumulator);
 
             String url = requestParams.keySet().stream()
                     .map(key -> {

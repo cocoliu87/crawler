@@ -2,11 +2,15 @@ package cis5550.flame;
 
 import cis5550.kvs.KVSClient;
 import cis5550.kvs.Row;
+import cis5550.tools.Serializer;
 
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Iterator;
 import java.util.List;
+import java.util.UUID;
+
+import static cis5550.flame.Worker.Delimiter;
 
 public class FlamePairRDDImpl implements FlamePairRDD {
     KVSClient client;
@@ -29,7 +33,7 @@ public class FlamePairRDDImpl implements FlamePairRDD {
             while (iter.hasNext()) {
                 Row r = iter.next();
                 for (String c: r.columns()) {
-                    pairs.add(new FlamePair(r.key(), new String(r.getBytes(c), StandardCharsets.UTF_8)));
+                    pairs.add(new FlamePair(r.key().split(Delimiter)[0], new String(r.getBytes(c), StandardCharsets.UTF_8)));
                 }
             }
         }
@@ -38,6 +42,9 @@ public class FlamePairRDDImpl implements FlamePairRDD {
 
     @Override
     public FlamePairRDD foldByKey(String zeroElement, TwoStringsToString lambda) throws Exception {
-        return null;
+        String outputTable = UUID.randomUUID().toString();
+        this.ctx.invokeOperation("/rdd/foldByKey", Serializer.objectToByteArray(lambda), tableName, outputTable, zeroElement);
+        System.out.println("FoldByKey input table: " + tableName + "; output table: " + outputTable);
+        return new FlamePairRDDImpl(client, ctx, outputTable);
     }
 }

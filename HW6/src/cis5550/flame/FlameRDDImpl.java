@@ -35,14 +35,14 @@ public class FlameRDDImpl implements FlameRDD{
     @Override
     public FlameRDD flatMap(StringToIterable lambda) throws Exception {
         String outputTable = UUID.randomUUID().toString();
-        this.ctx.invokeOperation("/rdd/flatMap", Serializer.objectToByteArray(lambda), tableName, outputTable);
+        this.ctx.invokeOperation("/rdd/flatMap", Serializer.objectToByteArray(lambda), tableName, outputTable, null);
         return new FlameRDDImpl(client, ctx, outputTable);
     }
 
     @Override
     public FlamePairRDD mapToPair(StringToPair lambda) throws Exception {
         String outputTable = UUID.randomUUID().toString();
-        this.ctx.invokeOperation("/rdd/mapToPair", Serializer.objectToByteArray(lambda), tableName, outputTable);
+        this.ctx.invokeOperation("/rdd/mapToPair", Serializer.objectToByteArray(lambda), tableName, outputTable, null);
         return new FlamePairRDDImpl(client, ctx, outputTable);
     }
 
