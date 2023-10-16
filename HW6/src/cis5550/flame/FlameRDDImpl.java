@@ -43,6 +43,7 @@ public class FlameRDDImpl implements FlameRDD{
     public FlamePairRDD mapToPair(StringToPair lambda) throws Exception {
         String outputTable = UUID.randomUUID().toString();
         this.ctx.invokeOperation("/rdd/mapToPair", Serializer.objectToByteArray(lambda), tableName, outputTable, null);
+        System.out.println("MapToPair input table: " + tableName + "; output table: " + outputTable);
         return new FlamePairRDDImpl(client, ctx, outputTable);
     }
 

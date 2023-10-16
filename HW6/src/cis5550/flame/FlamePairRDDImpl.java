@@ -10,7 +10,6 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.UUID;
 
-import static cis5550.flame.Worker.Delimiter;
 
 public class FlamePairRDDImpl implements FlamePairRDD {
     KVSClient client;
@@ -29,11 +28,12 @@ public class FlamePairRDDImpl implements FlamePairRDD {
         List<FlamePair> pairs = new ArrayList<>();
         if (!tableName.isEmpty() && client != null) {
             Iterator<Row> iter = client.scan(tableName);
+            System.out.println("Collecting table: " + tableName);
 
             while (iter.hasNext()) {
                 Row r = iter.next();
                 for (String c: r.columns()) {
-                    pairs.add(new FlamePair(r.key().split(Delimiter)[0], new String(r.getBytes(c), StandardCharsets.UTF_8)));
+                    pairs.add(new FlamePair(r.key(), new String(r.getBytes(c), StandardCharsets.UTF_8)));
                 }
             }
         }

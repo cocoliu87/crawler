@@ -81,10 +81,13 @@ class Worker extends cis5550.generic.Worker {
                 Row r = rows.next();
                 FlamePair pair = lambda.op(r.get("value"));
                 if (pair != null) {
-                    Row newRow = new Row(pair.a + Delimiter + r.key());
-                    newRow.put(r.key(), pair.b);
-                    client.putRow(output, newRow);
-                    //System.out.println("Writing row: "  + newRow);
+                    Row row = client.getRow(output, pair.a);
+                    if (row == null) {
+                        row = new Row(pair.a);
+                    }
+                    row.put(r.key(), pair.b);
+                    client.putRow(output, row);
+                    System.out.println("MapToPair -- Input Table: " + input + "; Output Table: " + output + "; Writing row: "  + row);
                 }
             }
             return "";
@@ -111,11 +114,13 @@ class Worker extends cis5550.generic.Worker {
                 String newAccu = accu;
                 if (r != null) {
                     for (String col: r.columns()) {
-                        newAccu = lambda.op(accu, r.get(col));
+                        //System.out.println("accumulated: " + newAccu + "; Vi: " + r.get(col));
+                        newAccu = lambda.op(newAccu, r.get(col));
                     }
                     Row newRow = new Row(r.key());
                     newRow.put("value", newAccu);
                     client.putRow(output, newRow);
+                    System.out.println("FoldByKey -- Input Table: " + input + "; Output Table: " + output + "; Writing row: "  + newRow);
                 }
             }
             return "";
