@@ -72,22 +72,24 @@ public class FlameContextImpl implements FlameContext {
             Map<String, String> requestParams = new HashMap<>();
             requestParams.put("input", inputTable);
             requestParams.put("output", outputTable);
-            if (pp.fromKey != null) requestParams.put("fromRow", pp.fromKey);
-            if (pp.toKeyExclusive != null) requestParams.put("toRow", pp.toKeyExclusive);
+            if (pp.fromKey != null && !pp.fromKey.isEmpty())
+                requestParams.put("fromRow", pp.fromKey);
+            if (pp.toKeyExclusive != null && !pp.toKeyExclusive.isEmpty())
+                requestParams.put("toRow", pp.toKeyExclusive);
             requestParams.put("coordinator", kvsClient.getCoordinator());
-            if (accumulator != null) requestParams.put("accu", accumulator);
+            if (accumulator != null)
+                requestParams.put("accu", accumulator);
 
             String url = requestParams.keySet().stream()
-                    .map(key -> {
-                        try {
-                            return key + "=" + encodeValue(requestParams.get(key));
-                        } catch (UnsupportedEncodingException e) {
-                            throw new RuntimeException(e);
-                        }
-                    })
-                    .collect(joining("&", "http://"+pp.assignedFlameWorker+ops+"?", ""));
-/*            String query = "?input=" + inputTable + "&output=" + outputTable + "&fromRow=" + pp.fromKey + "&toRow=" + pp.toKeyExclusive;
-            final String url = "http://"+pp.assignedFlameWorker+ops+query;*/
+                .map(key -> {
+                    try {
+                        return key + "=" + encodeValue(requestParams.get(key));
+                    } catch (UnsupportedEncodingException e) {
+                        throw new RuntimeException(e);
+                    }
+                })
+                .collect(joining("&", "http://"+pp.assignedFlameWorker+ops+"?", ""));
+
             final int j = i;
             threads[i] = new Thread("flat-map #"+(i+1)) {
                 public void run() {

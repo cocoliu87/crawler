@@ -49,7 +49,31 @@ public class FlameRDDImpl implements FlameRDD{
 
     @Override
     public FlameRDD intersection(FlameRDD r) throws Exception {
-        return null;
+        String intersectionTable = UUID.randomUUID().toString();
+        FlameRDDImpl fdi = new FlameRDDImpl(client, ctx, intersectionTable);
+        Iterator<Row> t1 = client.scan(this.tableName);
+        Iterator<Row> t2 = client.scan(((FlameRDDImpl)r).tableName);
+        if (t1 == null || t2 == null) {
+            return null;
+        }
+        Set<String> s1 = new HashSet<>();
+        while (t1.hasNext()) {
+            Row row = t1.next();
+            s1.add(row.toString());
+        }
+        Set<Row> same = new HashSet<>();
+        while (t2.hasNext()) {
+            Row row = t2.next();
+            if (s1.contains(row.toString())) {
+                same.add(row);
+            }
+        }
+
+        for (Row row: same) {
+            client.putRow(intersectionTable, row);
+        }
+
+        return fdi;
     }
 
     @Override
@@ -59,6 +83,22 @@ public class FlameRDDImpl implements FlameRDD{
 
     @Override
     public FlamePairRDD groupBy(StringToString lambda) throws Exception {
-        return null;
+        Iterator<Row> iter = client.scan(tableName);
+        String newTable = UUID.randomUUID().toString();
+        FlamePairRDDImpl fpri = new FlamePairRDDImpl(client, ctx, newTable);
+        Map<String, List<String>> cache = new HashMap<>();
+        while (iter.hasNext()) {
+            Row r = iter.next();
+            for (String c: r.columns()) {
+                String key = lambda.op(r.get(c));
+                cache.computeIfAbsent(key, k -> new ArrayList<>()).add(r.get(c));
+            }
+        }
+        for (Map.Entry<String, List<String>> entry: cache.entrySet()) {
+            Row row = new Row(entry.getKey());
+            row.put("values", String.join(",", entry.getValue()));
+            client.putRow(newTable, row);
+        }
+        return fpri;
     }
 }
