@@ -33,7 +33,7 @@ public class FlamePairRDDImpl implements FlamePairRDD {
             while (iter.hasNext()) {
                 Row r = iter.next();
                 for (String c: r.columns()) {
-                    pairs.add(new FlamePair(r.key(), new String(r.getBytes(c), StandardCharsets.UTF_8)));
+                    pairs.add(new FlamePair(r.key().split("@")[0], new String(r.getBytes(c), StandardCharsets.UTF_8)));
                 }
             }
         }

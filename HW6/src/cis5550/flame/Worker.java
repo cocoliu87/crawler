@@ -82,20 +82,17 @@ class Worker extends cis5550.generic.Worker {
                 Row r = rows.next();
                 FlamePair pair = lambda.op(r.get("value"));
                 if (pair != null) {
-                    // Row row = client.getRow(output, pair.a);
                     Row row = cache.get(pair.a);
                     if (row == null) {
                         row = new Row(pair.a);
                     }
                     row.put(r.key(), pair.b);
                     cache.put(pair.a, row);
-                    /*client.putRow(output, row);
-                    System.out.println("MapToPair -- Input Table: " + input + "; Output Table: " + output + "; Writing row: "  + row);*/
                 }
             }
             for (Map.Entry<String, Row> entry: cache.entrySet()) {
                 Row row = client.getRow(output, entry.getKey());
-                client.putRow(output, combineRows(row, entry.getValue()));
+                client.putRow(output, combineRows(row, entry.getValue(), fromRow + toRow));
             }
             return "";
         });
@@ -116,12 +113,40 @@ class Worker extends cis5550.generic.Worker {
             FlamePairRDD.TwoStringsToString lambda = (FlamePairRDD.TwoStringsToString) Serializer.byteArrayToObject(request.bodyAsBytes(), myJAR);
             KVSClient client = new KVSClient(coordinator);
             Iterator<Row> rows = client.scan(input, fromRow, toRow);
+            Map<String, Row> cache = new HashMap<>();
             while (rows.hasNext()) {
                 Row r = rows.next();
                 String newAccu = accu;
                 if (r != null) {
                     for (String col: r.columns()) {
-                        //System.out.println("accumulated: " + newAccu + "; Vi: " + r.get(col));
+                        newAccu = lambda.op(newAccu, r.get(col));
+                    }
+                    Row newRow = new Row(r.key());
+                    newRow.put(r.key().split("@")[1], newAccu);
+                    cache.put(r.key(), newRow);
+                }
+            }
+            Map<String, Row> aggregated = new HashMap<>();
+            for (Row r: cache.values()) {
+                String key = r.key().split("@")[0];
+                Row row = aggregated.get(key);
+                if (row == null) {
+                    row = new Row(key);
+                }
+
+                for (String c: r.columns()) {
+                    row.put(c, r.get(c));
+                }
+                aggregated.put(key, row);
+            }
+
+            Iterator<Row> iter = aggregated.values().iterator();
+
+            while (iter.hasNext()) {
+                Row r = iter.next();
+                String newAccu = accu;
+                if (r != null) {
+                    for (String col: r.columns()) {
                         newAccu = lambda.op(newAccu, r.get(col));
                     }
                     Row newRow = new Row(r.key());
@@ -130,11 +155,12 @@ class Worker extends cis5550.generic.Worker {
                     System.out.println("FoldByKey -- Input Table: " + input + "; Output Table: " + output + "; Writing row: "  + newRow);
                 }
             }
+
             return "";
         });
 	}
 
-    public static Row combineRows(Row r1, Row r2) {
+    public static Row combineRows(Row r1, Row r2, String extraKey) {
         if (r1 == null && r2 == null) {
             return null;
         }
@@ -142,7 +168,7 @@ class Worker extends cis5550.generic.Worker {
         if (r1 != null && r2 != null && !r1.key().equals(r2.key()))
             return null;
         String key = r1 == null ? r2.key() : r1.key();
-        Row newRow = new Row(key);
+        Row newRow = new Row(key + "@" + extraKey);
         if (r1 != null) {
             for (String c : r1.columns()) {
                 newRow.put(c, r1.get(c));
@@ -155,4 +181,5 @@ class Worker extends cis5550.generic.Worker {
         }
         return newRow;
     }
+
 }
