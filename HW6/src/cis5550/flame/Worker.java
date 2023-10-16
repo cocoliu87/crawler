@@ -77,18 +77,25 @@ class Worker extends cis5550.generic.Worker {
             FlameRDD.StringToPair lambda = (FlameRDD.StringToPair) Serializer.byteArrayToObject(request.bodyAsBytes(), myJAR);
             KVSClient client = new KVSClient(coordinator);
             Iterator<Row> rows = client.scan(input, fromRow, toRow);
+            Map<String, Row> cache = new HashMap<>();
             while (rows.hasNext()) {
                 Row r = rows.next();
                 FlamePair pair = lambda.op(r.get("value"));
                 if (pair != null) {
-                    Row row = client.getRow(output, pair.a);
+                    // Row row = client.getRow(output, pair.a);
+                    Row row = cache.get(pair.a);
                     if (row == null) {
                         row = new Row(pair.a);
                     }
                     row.put(r.key(), pair.b);
-                    client.putRow(output, row);
-                    System.out.println("MapToPair -- Input Table: " + input + "; Output Table: " + output + "; Writing row: "  + row);
+                    cache.put(pair.a, row);
+                    /*client.putRow(output, row);
+                    System.out.println("MapToPair -- Input Table: " + input + "; Output Table: " + output + "; Writing row: "  + row);*/
                 }
+            }
+            for (Map.Entry<String, Row> entry: cache.entrySet()) {
+                Row row = client.getRow(output, entry.getKey());
+                client.putRow(output, combineRows(row, entry.getValue()));
             }
             return "";
         });
@@ -126,4 +133,26 @@ class Worker extends cis5550.generic.Worker {
             return "";
         });
 	}
+
+    public static Row combineRows(Row r1, Row r2) {
+        if (r1 == null && r2 == null) {
+            return null;
+        }
+
+        if (r1 != null && r2 != null && !r1.key().equals(r2.key()))
+            return null;
+        String key = r1 == null ? r2.key() : r1.key();
+        Row newRow = new Row(key);
+        if (r1 != null) {
+            for (String c : r1.columns()) {
+                newRow.put(c, r1.get(c));
+            }
+        }
+        if (r2 != null) {
+            for (String c : r2.columns()) {
+                newRow.put(c, r2.get(c));
+            }
+        }
+        return newRow;
+    }
 }
