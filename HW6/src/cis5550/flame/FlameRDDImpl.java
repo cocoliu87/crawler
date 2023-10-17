@@ -2,8 +2,10 @@ package cis5550.flame;
 
 import cis5550.kvs.KVSClient;
 import cis5550.kvs.Row;
+import cis5550.tools.Hasher;
 import cis5550.tools.Serializer;
 
+import java.io.IOException;
 import java.util.*;
 
 public class FlameRDDImpl implements FlameRDD{
@@ -49,31 +51,37 @@ public class FlameRDDImpl implements FlameRDD{
 
     @Override
     public FlameRDD intersection(FlameRDD r) throws Exception {
-        String intersectionTable = UUID.randomUUID().toString();
-        FlameRDDImpl fdi = new FlameRDDImpl(client, ctx, intersectionTable);
         Iterator<Row> t1 = client.scan(this.tableName);
         Iterator<Row> t2 = client.scan(((FlameRDDImpl)r).tableName);
-        if (t1 == null || t2 == null) {
-            return null;
-        }
-        Set<String> s1 = new HashSet<>();
-        while (t1.hasNext()) {
-            Row row = t1.next();
-            s1.add(row.toString());
-        }
-        Set<Row> same = new HashSet<>();
-        while (t2.hasNext()) {
-            Row row = t2.next();
-            if (s1.contains(row.toString())) {
-                same.add(row);
-            }
-        }
-
+        Set<Row> same = getIntersection(t1, t2);
+        String intersectionTable = UUID.randomUUID().toString();
+        FlameRDDImpl fdi = new FlameRDDImpl(client, ctx, intersectionTable);
         for (Row row: same) {
             client.putRow(intersectionTable, row);
         }
 
         return fdi;
+    }
+
+    protected Set<Row> getIntersection(Iterator<Row> t1, Iterator<Row> t2) {
+        if (t1 == null || t2 == null) {
+            return null;
+        }
+
+        Map<String, Row> s1 = new HashMap<>();
+        while (t1.hasNext()) {
+            Row row = t1.next();
+            s1.put(hashColumns(row), row);
+        }
+        Set<Row> same = new HashSet<>();
+        while (t2.hasNext()) {
+            Row row = t2.next();
+            if (s1.containsKey(hashColumns(row))) {
+                same.add(row);
+            }
+        }
+
+        return same;
     }
 
     @Override
@@ -100,5 +108,13 @@ public class FlameRDDImpl implements FlameRDD{
             client.putRow(newTable, row);
         }
         return fpri;
+    }
+
+    private String hashColumns(Row row) {
+        StringBuilder s = new StringBuilder();
+        for (String c: row.columns()) {
+            s.append(row.get(c)).append(" ");
+        }
+        return Hasher.hash(s.toString());
     }
 }
