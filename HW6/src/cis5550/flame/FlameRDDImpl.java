@@ -86,7 +86,34 @@ public class FlameRDDImpl implements FlameRDD{
 
     @Override
     public FlameRDD sample(double f) throws Exception {
-        return null;
+        Iterator<Row> iter = client.scan(tableName);
+        String newTable = UUID.randomUUID().toString();
+        FlameRDDImpl rdd = new FlameRDDImpl(client, ctx, newTable);
+        for (Row r: sampleRows(iter, f)) {
+            client.putRow(newTable, r);
+        }
+        return rdd;
+    }
+
+    protected List<Row> sampleRows(Iterator<Row> iter, double f) {
+        List<Row> rows = new ArrayList<>();
+        iter.forEachRemaining(rows::add);
+        int sampleSize = (int)(rows.size() * f);
+        Row[] samples = new Row[sampleSize];
+        int idx;
+        for (idx = 0; idx < sampleSize; idx++) {
+            samples[idx] = rows.get(idx);
+        }
+
+        Random rand = new Random();
+
+        for (; idx < rows.size(); idx++) {
+            int s = rand.nextInt(idx + 1);
+            if (s < sampleSize) {
+                samples[s] = rows.get(idx);
+            }
+        }
+        return Arrays.asList(samples);
     }
 
     @Override

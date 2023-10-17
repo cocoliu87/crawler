@@ -4,10 +4,7 @@ import cis5550.kvs.Row;
 import org.junit.Assert;
 import org.junit.Test;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.ThreadLocalRandom;
 
 public class FlameRDDImplTest {
@@ -69,6 +66,35 @@ public class FlameRDDImplTest {
             row = r;
         }
         Assert.assertEquals("hello world", row.get("values_0") + " " + row.get("values_1"));
+    }
+
+    @Test
+    public void sampleRows_sampleTwice() {
+        int elements = 10;
+        double f = 0.5;
+
+        List<Row> rows = new ArrayList<>();
+        for (int i = 0; i < elements; i++) {
+            rows.add(createRandomRowWithOneColumn(null));
+        }
+
+        FlameRDDImpl rdd = new FlameRDDImpl(null, null, null);
+
+        List<Row> samplesOne = rdd.sampleRows(rows.iterator(), f);
+        List<Row> samplesTwo = rdd.sampleRows(rows.iterator(), f);
+
+        Set<String> one = new HashSet<>();
+        Set<String> two = new HashSet<>();
+
+        for (Row r: samplesOne) {
+            one.add(r.key());
+        }
+
+        for (Row r: samplesTwo) {
+            two.add(r.key());
+        }
+
+        Assert.assertNotEquals(one, two);
     }
 
     private Row createRandomRowWithOneColumn(String value) {
