@@ -20,17 +20,28 @@ public class FlameRDDImpl implements FlameRDD{
 
     @Override
     public int count() throws Exception {
-        return 0;
+        return client.count(tableName);
     }
 
     @Override
     public void saveAsTable(String tableNameArg) throws Exception {
-
+        client.rename(tableName, tableNameArg);
     }
 
     @Override
     public FlameRDD distinct() throws Exception {
-        return null;
+        String outputTable = UUID.randomUUID().toString();
+        Iterator<Row> rows = client.scan(tableName);
+        while (rows.hasNext()) {
+            Row oriRow = rows.next();
+            for (String c: oriRow.columns()) {
+                String v = oriRow.get(c);
+                Row newRow = new Row(Hasher.hash(v));
+                newRow.put("value", v);
+                client.putRow(outputTable, newRow);
+            }
+        }
+        return new FlameRDDImpl(client, ctx, outputTable);
     }
 
     @Override
@@ -40,7 +51,16 @@ public class FlameRDDImpl implements FlameRDD{
 
     @Override
     public Vector<String> take(int num) throws Exception {
-        return null;
+        Iterator<Row> rows = client.scan(tableName);
+        Vector<String> output = new Vector<>();
+        while (rows.hasNext() && num > 0) {
+            Row row = rows.next();
+            num--;
+            for (String c: row.columns()) {
+                output.add(row.get(c));
+            }
+        }
+        return output;
     }
 
     @Override
@@ -73,7 +93,9 @@ public class FlameRDDImpl implements FlameRDD{
 
     @Override
     public FlamePairRDD flatMapToPair(StringToPairIterable lambda) throws Exception {
-        return null;
+        String outputTable = UUID.randomUUID().toString();
+        this.ctx.invokeOperation("/rdd/flatMapToPair", Serializer.objectToByteArray(lambda), tableName, outputTable, null);
+        return new FlamePairRDDImpl(client, ctx, outputTable);
     }
 
     @Override

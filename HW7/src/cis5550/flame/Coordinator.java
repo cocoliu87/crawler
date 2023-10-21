@@ -17,7 +17,7 @@ class Coordinator extends cis5550.generic.Coordinator {
   static int nextJobID = 1;
   public static KVSClient kvs;
 
-	public static void main(String args[]) {
+  public static void main(String args[]) {
 
     // Check the command-line arguments
 
@@ -108,9 +108,9 @@ class Coordinator extends cis5550.generic.Coordinator {
       // exist or might not have a run() method, and the method might throw an exception while it is running,
       // in which case we'll get an InvocationTargetException. We'll extract the underlying cause and report it
       // back to the user in the HTTP response, to help with debugging.
-
+      FlameContextImpl fc = new FlameContextImpl(jarName, kvs);
       try {
-        Loader.invokeRunMethod(jarFile, className, new FlameContextImpl(jarName), argVector);
+        Loader.invokeRunMethod(jarFile, className, fc, argVector);
       } catch (IllegalAccessException iae) {
         response.status(400, "Bad request");
         return "Double-check that the class "+className+" contains a public static run(FlameContext, String[]) method, and that the class itself is public!";
@@ -125,9 +125,9 @@ class Coordinator extends cis5550.generic.Coordinator {
         return sw.toString();
       }
 
-      return "(add job output here)";
+      return fc.builder.toString();
     });
 
     get("/version", (request, response) -> { return "v1.2 Oct 28 2022"; });
-	}
+  }
 }

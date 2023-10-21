@@ -11,7 +11,6 @@ import cis5550.kvs.*;
 import cis5550.webserver.Request;
 
 class Worker extends cis5550.generic.Worker {
-    static final String Delimiter = "@";
 	public static void main(String args[]) {
         if (args.length != 2) {
             System.err.println("Syntax: Worker <port> <coordinatorIP:port>");
@@ -62,6 +61,73 @@ class Worker extends cis5550.generic.Worker {
             return "";
         });
 
+        post("/rdd/flatMapToPair", (request, response) -> {
+            String input = "", output = "", fromRow = null, toRow = null, coordinator = "";
+            for (String key: request.queryParams()) {
+                switch (key) {
+                    case "input" -> input = request.queryParams(key);
+                    case "output" -> output = request.queryParams(key);
+                    case "fromRow" -> fromRow = request.queryParams(key);
+                    case "toRow" -> toRow = request.queryParams(key);
+                    case "coordinator" -> coordinator = request.queryParams(key);
+                }
+            }
+
+            FlameRDD.StringToPairIterable lambda = (FlameRDD.StringToPairIterable) Serializer.byteArrayToObject(request.bodyAsBytes(), myJAR);
+            KVSClient client = new KVSClient(coordinator);
+            Iterator<Row> rows = client.scan(input, fromRow, toRow);
+            Map<String, Row> cache = new HashMap<>();
+            while (rows.hasNext()) {
+                Row r = rows.next();
+                Iterable<FlamePair> values = lambda.op(r.get("value"));
+                if (values != null) {
+                    Iterator<FlamePair> iter = values.iterator();
+                    while (iter.hasNext()) {
+                        FlamePair fp = iter.next();
+                        String unique = UUID.randomUUID().toString().split("-")[0];
+                        client.put(output, fp.a, unique, fp.b);
+                    }
+                }
+            }
+
+            System.out.println("Writing into output table " + output);
+
+            return "";
+        });
+
+        post("/pairRdd/flatMap", (request, response) -> {
+            String input = "", output = "", fromRow = null, toRow = null, coordinator = "";
+            for (String key: request.queryParams()) {
+                switch (key) {
+                    case "input" -> input = request.queryParams(key);
+                    case "output" -> output = request.queryParams(key);
+                    case "fromRow" -> fromRow = request.queryParams(key);
+                    case "toRow" -> toRow = request.queryParams(key);
+                    case "coordinator" -> coordinator = request.queryParams(key);
+                }
+            }
+
+            FlamePairRDD.PairToStringIterable lambda = (FlamePairRDD.PairToStringIterable) Serializer.byteArrayToObject(request.bodyAsBytes(), myJAR);
+            KVSClient client = new KVSClient(coordinator);
+            Iterator<Row> rows = client.scan(input, fromRow, toRow);
+            while (rows.hasNext()) {
+                Row r = rows.next();
+                List<Iterable<String>> pairs = new ArrayList<>();
+                for (String c: r.columns()) {
+                    FlamePair fp = new FlamePair(c, r.get(c));
+                    Iterable<String> values = lambda.op(fp);
+                    pairs.add(values);
+                }
+
+                for (Iterable<String> iter: pairs) {
+                    Row newRow = new Row(r.key());
+                    //newRow.put("value", iter.next());
+                    client.putRow(output, newRow);
+                }
+            }
+            return "";
+        });
+
         post("/rdd/mapToPair", (request, response) -> {
             String input = "", output = "", fromRow = null, toRow = null, coordinator = "";
             for (String key: request.queryParams()) {
@@ -77,23 +143,24 @@ class Worker extends cis5550.generic.Worker {
             FlameRDD.StringToPair lambda = (FlameRDD.StringToPair) Serializer.byteArrayToObject(request.bodyAsBytes(), myJAR);
             KVSClient client = new KVSClient(coordinator);
             Iterator<Row> rows = client.scan(input, fromRow, toRow);
-            Map<String, Row> cache = new HashMap<>();
+            //Map<String, Row> cache = new HashMap<>();
             while (rows.hasNext()) {
                 Row r = rows.next();
                 FlamePair pair = lambda.op(r.get("value"));
                 if (pair != null) {
-                    Row row = cache.get(pair.a);
+                    client.put(output, pair.a, r.key(), pair.b);
+/*                    Row row = cache.get(pair.a);
                     if (row == null) {
                         row = new Row(pair.a);
                     }
                     row.put(r.key(), pair.b);
-                    cache.put(pair.a, row);
+                    cache.put(pair.a, row);*/
                 }
             }
-            for (Map.Entry<String, Row> entry: cache.entrySet()) {
+/*            for (Map.Entry<String, Row> entry: cache.entrySet()) {
                 Row row = client.getRow(output, entry.getKey());
                 client.putRow(output, combineRows(row, entry.getValue(), fromRow + toRow));
-            }
+            }*/
             return "";
         });
 
@@ -121,12 +188,13 @@ class Worker extends cis5550.generic.Worker {
                     for (String col: r.columns()) {
                         newAccu = lambda.op(newAccu, r.get(col));
                     }
-                    Row newRow = new Row(r.key());
+                    client.put(output, r.key(), "value", newAccu);
+/*                    Row newRow = new Row(r.key());
                     newRow.put(r.key().split("@")[1], newAccu);
-                    cache.put(r.key(), newRow);
+                    cache.put(r.key(), newRow);*/
                 }
             }
-            Map<String, Row> aggregated = new HashMap<>();
+/*            Map<String, Row> aggregated = new HashMap<>();
             for (Row r: cache.values()) {
                 String key = r.key().split("@")[0];
                 Row row = aggregated.get(key);
@@ -154,8 +222,30 @@ class Worker extends cis5550.generic.Worker {
                     client.putRow(output, newRow);
                     System.out.println("FoldByKey -- Input Table: " + input + "; Output Table: " + output + "; Writing row: "  + newRow);
                 }
+            }*/
+
+            return "";
+        });
+
+        post("/rdd/fromTable", (request, response) -> {
+            String input = "", output = "", fromRow = null, toRow = null, coordinator = "";
+            for (String key: request.queryParams()) {
+                switch (key) {
+                    case "input" -> input = request.queryParams(key);
+                    case "output" -> output = request.queryParams(key);
+                    case "coordinator" -> coordinator = request.queryParams(key);
+                }
             }
 
+            FlameContext.RowToString lambda = (FlameContext.RowToString) Serializer.byteArrayToObject(request.bodyAsBytes(), myJAR);
+            KVSClient client = new KVSClient(coordinator);
+            Iterator<Row> rows = client.scan(input);
+            while (rows.hasNext()) {
+                Row oriRow = rows.next();
+                Row newRow = new Row(oriRow.key());
+                newRow.put("value", lambda.op(oriRow));
+                client.putRow(output, newRow);
+            }
             return "";
         });
 	}

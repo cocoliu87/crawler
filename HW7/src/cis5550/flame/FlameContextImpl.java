@@ -5,6 +5,7 @@ import cis5550.kvs.Row;
 import cis5550.tools.HTTP;
 import cis5550.tools.Hasher;
 import cis5550.tools.Partitioner;
+import cis5550.tools.Serializer;
 
 import java.io.IOException;
 import java.io.UnsupportedEncodingException;
@@ -48,7 +49,9 @@ public class FlameContextImpl implements FlameContext {
 
     @Override
     public FlameRDD fromTable(String tableName, RowToString lambda) throws Exception {
-        return null;
+        String outputTable = UUID.randomUUID().toString();
+        invokeOperation("/rdd/fromTable", Serializer.objectToByteArray(lambda), tableName, outputTable, null);
+        return new FlameRDDImpl(kvsClient, this, outputTable);
     }
 
     @Override

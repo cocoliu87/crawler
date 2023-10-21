@@ -33,7 +33,8 @@ public class FlamePairRDDImpl implements FlamePairRDD {
             while (iter.hasNext()) {
                 Row r = iter.next();
                 for (String c: r.columns()) {
-                    pairs.add(new FlamePair(r.key().split("@")[0], new String(r.getBytes(c), StandardCharsets.UTF_8)));
+                    pairs.add(new FlamePair(r.key(), new String(r.getBytes(c), StandardCharsets.UTF_8)));
+                    //pairs.add(new FlamePair(r.key().split("@")[0], new String(r.getBytes(c), StandardCharsets.UTF_8)));
                 }
             }
         }
@@ -50,12 +51,20 @@ public class FlamePairRDDImpl implements FlamePairRDD {
 
     @Override
     public void saveAsTable(String tableNameArg) throws Exception {
-
+        Iterator<Row> rows = client.scan(tableName);
+        while(rows.hasNext()) {
+            Row r = rows.next();
+            for (String c: r.columns()) {
+                client.put(tableNameArg, r.key(), c, r.get(c));
+            }
+        }
     }
 
     @Override
     public FlameRDD flatMap(PairToStringIterable lambda) throws Exception {
-        return null;
+        String outputTable = UUID.randomUUID().toString();
+        this.ctx.invokeOperation("/pairRdd/flatMap", Serializer.objectToByteArray(lambda), tableName, outputTable, null);
+        return new FlameRDDImpl(client, ctx, outputTable);
     }
 
     @Override
@@ -70,6 +79,7 @@ public class FlamePairRDDImpl implements FlamePairRDD {
 
     @Override
     public FlamePairRDD join(FlamePairRDD other) throws Exception {
+
         return null;
     }
 
