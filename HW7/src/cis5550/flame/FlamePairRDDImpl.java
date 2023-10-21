@@ -44,7 +44,7 @@ public class FlamePairRDDImpl implements FlamePairRDD {
     @Override
     public FlamePairRDD foldByKey(String zeroElement, TwoStringsToString lambda) throws Exception {
         String outputTable = UUID.randomUUID().toString();
-        this.ctx.invokeOperation("/rdd/foldByKey", Serializer.objectToByteArray(lambda), tableName, outputTable, zeroElement);
+        this.ctx.invokeOperation("/rdd/foldByKey", Serializer.objectToByteArray(lambda), tableName, outputTable, zeroElement, null);
         System.out.println("FoldByKey input table: " + tableName + "; output table: " + outputTable);
         return new FlamePairRDDImpl(client, ctx, outputTable);
     }
@@ -63,7 +63,7 @@ public class FlamePairRDDImpl implements FlamePairRDD {
     @Override
     public FlameRDD flatMap(PairToStringIterable lambda) throws Exception {
         String outputTable = UUID.randomUUID().toString();
-        this.ctx.invokeOperation("/pairRdd/flatMap", Serializer.objectToByteArray(lambda), tableName, outputTable, null);
+        this.ctx.invokeOperation("/pairRdd/flatMap", Serializer.objectToByteArray(lambda), tableName, outputTable, null, null);
         return new FlameRDDImpl(client, ctx, outputTable);
     }
 
@@ -79,8 +79,10 @@ public class FlamePairRDDImpl implements FlamePairRDD {
 
     @Override
     public FlamePairRDD join(FlamePairRDD other) throws Exception {
-
-        return null;
+        String outputTable = UUID.randomUUID().toString();
+        this.ctx.invokeOperation("/pairRDD/join", null, tableName, outputTable, null, ((FlamePairRDDImpl)other).tableName);
+        //System.out.println("FoldByKey input table: " + tableName + "; output table: " + outputTable);
+        return new FlamePairRDDImpl(client, ctx, outputTable);
     }
 
     @Override

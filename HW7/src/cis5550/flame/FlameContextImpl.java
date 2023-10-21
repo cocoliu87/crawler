@@ -50,7 +50,7 @@ public class FlameContextImpl implements FlameContext {
     @Override
     public FlameRDD fromTable(String tableName, RowToString lambda) throws Exception {
         String outputTable = UUID.randomUUID().toString();
-        invokeOperation("/rdd/fromTable", Serializer.objectToByteArray(lambda), tableName, outputTable, null);
+        invokeOperation("/rdd/fromTable", Serializer.objectToByteArray(lambda), tableName, outputTable, null, null);
         return new FlameRDDImpl(kvsClient, this, outputTable);
     }
 
@@ -59,7 +59,7 @@ public class FlameContextImpl implements FlameContext {
 
     }
 
-    public boolean invokeOperation(String ops, byte[] lambda, String inputTable, String outputTable, String accumulator) throws IOException {
+    public boolean invokeOperation(String ops, byte[] lambda, String inputTable, String outputTable, String accumulator, String joinedTable) throws IOException {
         //String outputTable = UUID.randomUUID().toString();
         Partitioner p = new Partitioner();
 
@@ -92,6 +92,8 @@ public class FlameContextImpl implements FlameContext {
             requestParams.put("coordinator", kvsClient.getCoordinator());
             if (accumulator != null)
                 requestParams.put("accu", accumulator);
+            if (joinedTable != null)
+                requestParams.put("joinTo", joinedTable);
 
             String url = requestParams.keySet().stream()
                 .map(key -> {

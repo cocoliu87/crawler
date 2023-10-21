@@ -87,21 +87,21 @@ public class FlameRDDImpl implements FlameRDD{
     @Override
     public FlameRDD flatMap(StringToIterable lambda) throws Exception {
         String outputTable = UUID.randomUUID().toString();
-        this.ctx.invokeOperation("/rdd/flatMap", Serializer.objectToByteArray(lambda), tableName, outputTable, null);
+        this.ctx.invokeOperation("/rdd/flatMap", Serializer.objectToByteArray(lambda), tableName, outputTable, null, null);
         return new FlameRDDImpl(client, ctx, outputTable);
     }
 
     @Override
     public FlamePairRDD flatMapToPair(StringToPairIterable lambda) throws Exception {
         String outputTable = UUID.randomUUID().toString();
-        this.ctx.invokeOperation("/rdd/flatMapToPair", Serializer.objectToByteArray(lambda), tableName, outputTable, null);
+        this.ctx.invokeOperation("/rdd/flatMapToPair", Serializer.objectToByteArray(lambda), tableName, outputTable, null, null);
         return new FlamePairRDDImpl(client, ctx, outputTable);
     }
 
     @Override
     public FlamePairRDD mapToPair(StringToPair lambda) throws Exception {
         String outputTable = UUID.randomUUID().toString();
-        this.ctx.invokeOperation("/rdd/mapToPair", Serializer.objectToByteArray(lambda), tableName, outputTable, null);
+        this.ctx.invokeOperation("/rdd/mapToPair", Serializer.objectToByteArray(lambda), tableName, outputTable, null, null);
         System.out.println("MapToPair input table: " + tableName + "; output table: " + outputTable);
         return new FlamePairRDDImpl(client, ctx, outputTable);
     }

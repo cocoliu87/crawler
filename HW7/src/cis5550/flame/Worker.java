@@ -121,10 +121,44 @@ class Worker extends cis5550.generic.Worker {
 
                 for (Iterable<String> iter: pairs) {
                     Row newRow = new Row(r.key());
-                    //newRow.put("value", iter.next());
                     client.putRow(output, newRow);
                 }
             }
+            return "";
+        });
+
+        post("/pairRDD/join", (request, response) -> {
+            String input = "", output = "", fromRow = null, toRow = null, coordinator = "", joinTo = "";
+            for (String key: request.queryParams()) {
+                switch (key) {
+                    case "input" -> input = request.queryParams(key);
+                    case "output" -> output = request.queryParams(key);
+                    case "fromRow" -> fromRow = request.queryParams(key);
+                    case "toRow" -> toRow = request.queryParams(key);
+                    case "coordinator" -> coordinator = request.queryParams(key);
+                    case "joinTo" -> joinTo = request.queryParams(key);
+                }
+            }
+
+            KVSClient client = new KVSClient(coordinator);
+            Iterator<Row> t1Rows = client.scan(input, fromRow, toRow);
+            Iterator<Row> t2Rows = client.scan(joinTo, fromRow, toRow);
+            Map<String, Row> t1Map = new HashMap<>(), t2Map = new HashMap<>();
+            while (t1Rows.hasNext()) {
+                Row r = t1Rows.next();
+                t1Map.put(r.key(), r);
+            }
+            while (t2Rows.hasNext()) {
+                Row r = t2Rows.next();
+                t2Map.put(r.key(), r);
+            }
+
+            for (Map.Entry<String, Row> entry: t1Map.entrySet()) {
+                if (t2Map.containsKey(entry.getKey())) {
+                   client.putRow(output, joinRows(entry.getValue(), t2Map.get(entry.getKey())));
+                }
+            }
+
             return "";
         });
 
@@ -143,24 +177,14 @@ class Worker extends cis5550.generic.Worker {
             FlameRDD.StringToPair lambda = (FlameRDD.StringToPair) Serializer.byteArrayToObject(request.bodyAsBytes(), myJAR);
             KVSClient client = new KVSClient(coordinator);
             Iterator<Row> rows = client.scan(input, fromRow, toRow);
-            //Map<String, Row> cache = new HashMap<>();
             while (rows.hasNext()) {
                 Row r = rows.next();
                 FlamePair pair = lambda.op(r.get("value"));
                 if (pair != null) {
                     client.put(output, pair.a, r.key(), pair.b);
-/*                    Row row = cache.get(pair.a);
-                    if (row == null) {
-                        row = new Row(pair.a);
-                    }
-                    row.put(r.key(), pair.b);
-                    cache.put(pair.a, row);*/
                 }
             }
-/*            for (Map.Entry<String, Row> entry: cache.entrySet()) {
-                Row row = client.getRow(output, entry.getKey());
-                client.putRow(output, combineRows(row, entry.getValue(), fromRow + toRow));
-            }*/
+
             return "";
         });
 
@@ -189,40 +213,8 @@ class Worker extends cis5550.generic.Worker {
                         newAccu = lambda.op(newAccu, r.get(col));
                     }
                     client.put(output, r.key(), "value", newAccu);
-/*                    Row newRow = new Row(r.key());
-                    newRow.put(r.key().split("@")[1], newAccu);
-                    cache.put(r.key(), newRow);*/
                 }
             }
-/*            Map<String, Row> aggregated = new HashMap<>();
-            for (Row r: cache.values()) {
-                String key = r.key().split("@")[0];
-                Row row = aggregated.get(key);
-                if (row == null) {
-                    row = new Row(key);
-                }
-
-                for (String c: r.columns()) {
-                    row.put(c, r.get(c));
-                }
-                aggregated.put(key, row);
-            }
-
-            Iterator<Row> iter = aggregated.values().iterator();
-
-            while (iter.hasNext()) {
-                Row r = iter.next();
-                String newAccu = accu;
-                if (r != null) {
-                    for (String col: r.columns()) {
-                        newAccu = lambda.op(newAccu, r.get(col));
-                    }
-                    Row newRow = new Row(r.key());
-                    newRow.put("value", newAccu);
-                    client.putRow(output, newRow);
-                    System.out.println("FoldByKey -- Input Table: " + input + "; Output Table: " + output + "; Writing row: "  + newRow);
-                }
-            }*/
 
             return "";
         });
@@ -250,26 +242,23 @@ class Worker extends cis5550.generic.Worker {
         });
 	}
 
-    public static Row combineRows(Row r1, Row r2, String extraKey) {
-        if (r1 == null && r2 == null) {
-            return null;
-        }
+    /**
+     * Returns a Row object that is joined (combinations) columns'
+     * value. If both rows don't have a same key, return null.
+     *
+     * @param  r1 the first row
+     * @param  r2 the second row
+     * @return a new row object with all combinations of columns value
+     */
+    public static Row joinRows(Row r1, Row r2) {
+        if (!r1.key().equals(r2.key())) return null;
 
-        if (r1 != null && r2 != null && !r1.key().equals(r2.key()))
-            return null;
-        String key = r1 == null ? r2.key() : r1.key();
-        Row newRow = new Row(key + "@" + extraKey);
-        if (r1 != null) {
-            for (String c : r1.columns()) {
-                newRow.put(c, r1.get(c));
+        Row joinedRow = new Row(r1.key());
+        for (String c1: r1.columns()) {
+            for (String c2: r2.columns()) {
+                joinedRow.put(c1+"@c"+c2, r1.get(c1)+","+r2.get(c2));
             }
         }
-        if (r2 != null) {
-            for (String c : r2.columns()) {
-                newRow.put(c, r2.get(c));
-            }
-        }
-        return newRow;
+        return joinedRow;
     }
-
 }
