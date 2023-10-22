@@ -112,16 +112,12 @@ class Worker extends cis5550.generic.Worker {
             Iterator<Row> rows = client.scan(input, fromRow, toRow);
             while (rows.hasNext()) {
                 Row r = rows.next();
-                List<Iterable<String>> pairs = new ArrayList<>();
                 for (String c: r.columns()) {
-                    FlamePair fp = new FlamePair(c, r.get(c));
-                    Iterable<String> values = lambda.op(fp);
-                    pairs.add(values);
-                }
-
-                for (Iterable<String> iter: pairs) {
-                    Row newRow = new Row(r.key());
-                    client.putRow(output, newRow);
+                    FlamePair fp = new FlamePair(r.key(), r.get(c));
+                    Iterator<String> values = lambda.op(fp).iterator();
+                    while (values.hasNext()) {
+                        client.put(output, r.key(), UUID.randomUUID().toString().split("-")[0], values.next());
+                    }
                 }
             }
             return "";
