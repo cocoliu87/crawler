@@ -196,7 +196,9 @@ public class FlameRDDImpl implements FlameRDD{
 
     @Override
     public FlameRDD filter(StringToBoolean lambda) throws Exception {
-        return null;
+        String outputTable = UUID.randomUUID().toString();
+        this.ctx.invokeOperation("/rdd/filter", Serializer.objectToByteArray(lambda), tableName, outputTable, null, null);
+        return new FlameRDDImpl(client, ctx, outputTable);
     }
 
     @Override

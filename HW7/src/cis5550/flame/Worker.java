@@ -11,6 +11,8 @@ import cis5550.kvs.*;
 import cis5550.webserver.Request;
 
 class Worker extends cis5550.generic.Worker {
+
+    static final String Delimiter = "@";
 	public static void main(String args[]) {
         if (args.length != 2) {
             System.err.println("Syntax: Worker <port> <coordinatorIP:port>");
@@ -180,7 +182,50 @@ class Worker extends cis5550.generic.Worker {
 
             for (Map.Entry<String, Row> entry: t1Map.entrySet()) {
                 if (t2Map.containsKey(entry.getKey())) {
-                   client.putRow(output, joinRows(entry.getValue(), t2Map.get(entry.getKey())));
+                    Row newRow =  joinRows(entry.getValue(), t2Map.get(entry.getKey()));
+                    if (newRow != null) {
+                        for (String c : newRow.columns()) {
+                            client.put(output, newRow.key(), c, newRow.get(c));
+                        }
+                    }
+                }
+            }
+
+            return "";
+        });
+
+        post("/pairRDD/cogroup", (request, response) -> {
+            String input = "", output = "", fromRow = null, toRow = null, coordinator = "", groupTo = "";
+            for (String key: request.queryParams()) {
+                switch (key) {
+                    case "input" -> input = request.queryParams(key);
+                    case "output" -> output = request.queryParams(key);
+                    case "fromRow" -> fromRow = request.queryParams(key);
+                    case "toRow" -> toRow = request.queryParams(key);
+                    case "coordinator" -> coordinator = request.queryParams(key);
+                    case "cogroup" -> groupTo = request.queryParams(key);
+                }
+            }
+
+            KVSClient client = new KVSClient(coordinator);
+            Iterator<Row> t1Rows = client.scan(input, fromRow, toRow);
+            Iterator<Row> t2Rows = client.scan(groupTo, fromRow, toRow);
+            Map<String, Row> t1Map = new HashMap<>(), t2Map = new HashMap<>();
+            while (t1Rows.hasNext()) {
+                Row r = t1Rows.next();
+                t1Map.put(r.key(), r);
+            }
+            while (t2Rows.hasNext()) {
+                Row r = t2Rows.next();
+                t2Map.put(r.key(), r);
+            }
+
+            for (Map.Entry<String, Row> entry: t1Map.entrySet()) {
+                if (t2Map.containsKey(entry.getKey())) {
+                    FlamePair fp = groupRows(entry.getValue(), t2Map.get(entry.getKey()));
+                    if (fp != null) {
+                        client.put(output, fp.a, UUID.randomUUID().toString().split("-")[0], fp.b);
+                    }
                 }
             }
 
@@ -265,6 +310,32 @@ class Worker extends cis5550.generic.Worker {
             }
             return "";
         });
+
+        post("/rdd/filter", (request, response) -> {
+            String input = "", output = "", fromRow = null, toRow = null, coordinator = "";
+            for (String key: request.queryParams()) {
+                switch (key) {
+                    case "input" -> input = request.queryParams(key);
+                    case "output" -> output = request.queryParams(key);
+                    case "fromRow" -> fromRow = request.queryParams(key);
+                    case "toRow" -> toRow = request.queryParams(key);
+                }
+            }
+
+            FlameRDD.StringToBoolean lambda = (FlameRDD.StringToBoolean) Serializer.byteArrayToObject(request.bodyAsBytes(), myJAR);
+            KVSClient client = new KVSClient(coordinator);
+            Iterator<Row> rows = client.scan(input, fromRow, toRow);
+            while (rows.hasNext()) {
+                Row r = rows.next();
+                for (String c: r.columns()) {
+                    if (lambda.op(r.get(c))) {
+                        client.put(output, r.key(), c, r.get(c));
+                    }
+                }
+            }
+
+            return "";
+        });
 	}
 
     /**
@@ -281,9 +352,44 @@ class Worker extends cis5550.generic.Worker {
         Row joinedRow = new Row(r1.key());
         for (String c1: r1.columns()) {
             for (String c2: r2.columns()) {
-                joinedRow.put(c1+"@c"+c2, r1.get(c1)+","+r2.get(c2));
+                joinedRow.put(c1+Delimiter+c2, r1.get(c1)+","+r2.get(c2));
             }
         }
         return joinedRow;
+    }
+
+    /**
+     * Returns a Row object that is grouped pairs value based on
+     * their key. If both rows don't have a same key, return null.
+     * For instance, if the original RDD contains (fruit,apple) and
+     * (fruit,banana) and R contains (fruit,cherry), (fruit,date)
+     * and (fruit,fig), the result should contain a pair with key
+     * fruit and value [apple,banana],[cherry,date,fig].
+     *
+     * @param  r1 the first row
+     * @param  r2 the second row
+     * @return a new row object with grouped values
+     */
+    public static FlamePair groupRows(Row r1, Row r2) {
+        if (!r1.key().equals(r2.key())) return null;
+
+        List<String> v1 = new ArrayList<>(), v2 = new ArrayList<>();
+
+        for (String c: r1.columns()) {
+            v1.add(r1.get(c));
+        }
+
+        for (String c: r2.columns()) {
+            v2.add(r2.get(c));
+        }
+
+        String s = "[" +
+                String.join(",", v1) +
+                "]" +
+                "," +
+                "[" +
+                String.join(",", v2) + "]";
+
+        return new FlamePair(r1.key(), s);
     }
 }
