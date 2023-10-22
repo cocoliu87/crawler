@@ -59,8 +59,7 @@ public class FlameContextImpl implements FlameContext {
 
     }
 
-    public boolean invokeOperation(String ops, byte[] lambda, String inputTable, String outputTable, String accumulator, String joinedTable) throws IOException {
-        //String outputTable = UUID.randomUUID().toString();
+    public void invokeOperation(String ops, byte[] lambda, String inputTable, String outputTable, String accumulator, String joinedTable) throws IOException {
         Partitioner p = new Partitioner();
 
         int workers = kvsClient.numWorkers();
@@ -84,7 +83,8 @@ public class FlameContextImpl implements FlameContext {
             Partitioner.Partition pp = pps.elementAt(i);
             Map<String, String> requestParams = new HashMap<>();
             requestParams.put("input", inputTable);
-            requestParams.put("output", outputTable);
+            if (outputTable != null && !outputTable.isEmpty())
+                requestParams.put("output", outputTable);
             if (pp.fromKey != null && !pp.fromKey.isEmpty())
                 requestParams.put("fromRow", pp.fromKey);
             if (pp.toKeyExclusive != null && !pp.toKeyExclusive.isEmpty())
@@ -125,13 +125,25 @@ public class FlameContextImpl implements FlameContext {
             }
         }
 
+        int count = 0;
+
         for (HTTP.Response r: results) {
             if (r.statusCode() >= 300) {
-                return false;
+                return;
             }
-            builder.append(new String(r.body(), StandardCharsets.UTF_8));
+            String str = new String(r.body(), StandardCharsets.UTF_8);
+            builder.append(str);
+            try {
+                count += Integer.parseInt(str);
+            } catch (NumberFormatException ignored) {
+
+            }
         }
-        return true;
+        if (ops.equals("/rdd/fold")) {
+            builder.setLength(0);
+            builder.append(count);
+        }
+        //return String.valueOf(count);
     }
 
     private String encodeValue(String value) throws UnsupportedEncodingException {

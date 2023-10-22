@@ -65,7 +65,8 @@ public class FlameRDDImpl implements FlameRDD{
 
     @Override
     public String fold(String zeroElement, FlamePairRDD.TwoStringsToString lambda) throws Exception {
-        return null;
+        this.ctx.invokeOperation("/rdd/fold", Serializer.objectToByteArray(lambda), tableName, null, zeroElement, null);
+        return "";
     }
 
     @Override

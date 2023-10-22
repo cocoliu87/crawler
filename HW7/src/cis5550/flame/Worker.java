@@ -274,7 +274,6 @@ class Worker extends cis5550.generic.Worker {
             FlamePairRDD.TwoStringsToString lambda = (FlamePairRDD.TwoStringsToString) Serializer.byteArrayToObject(request.bodyAsBytes(), myJAR);
             KVSClient client = new KVSClient(coordinator);
             Iterator<Row> rows = client.scan(input, fromRow, toRow);
-            Map<String, Row> cache = new HashMap<>();
             while (rows.hasNext()) {
                 Row r = rows.next();
                 String newAccu = accu;
@@ -335,6 +334,36 @@ class Worker extends cis5550.generic.Worker {
             }
 
             return "";
+        });
+
+        post("/rdd/fold", (request, response) -> {
+            String input = "", output = "", fromRow = null, toRow = null, coordinator = "", accu = "";
+            for (String key: request.queryParams()) {
+                switch (key) {
+                    case "input" -> input = request.queryParams(key);
+                    case "output" -> output = request.queryParams(key);
+                    case "fromRow" -> fromRow = request.queryParams(key);
+                    case "toRow" -> toRow = request.queryParams(key);
+                    case "coordinator" -> coordinator = request.queryParams(key);
+                    case "accu" -> accu = request.queryParams(key);
+                }
+            }
+
+            FlamePairRDD.TwoStringsToString lambda = (FlamePairRDD.TwoStringsToString) Serializer.byteArrayToObject(request.bodyAsBytes(), myJAR);
+            KVSClient client = new KVSClient(coordinator);
+            Iterator<Row> rows = client.scan(input, fromRow, toRow);
+            String newAccu = accu;
+            while (rows.hasNext()) {
+                Row r = rows.next();
+
+                if (r != null) {
+                    for (String col: r.columns()) {
+                        newAccu = lambda.op(newAccu, r.get(col));
+                    }
+                }
+            }
+
+            return newAccu;
         });
 	}
 
