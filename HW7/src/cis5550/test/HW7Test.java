@@ -445,7 +445,7 @@ public class HW7Test extends GenericTest {
       tests.add("fromtable");
       tests.add("map1");
       tests.add("map2");
-      //tests.add("map3");
+      tests.add("map3");
       tests.add("distinct");
       tests.add("join");
       //tests.add("fold");

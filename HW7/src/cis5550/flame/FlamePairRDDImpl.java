@@ -74,7 +74,9 @@ public class FlamePairRDDImpl implements FlamePairRDD {
 
     @Override
     public FlamePairRDD flatMapToPair(PairToPairIterable lambda) throws Exception {
-        return null;
+        String outputTable = UUID.randomUUID().toString();
+        this.ctx.invokeOperation("/pairRdd/flatMapToPair", Serializer.objectToByteArray(lambda), tableName, outputTable, null, null);
+        return new FlamePairRDDImpl(client, ctx, outputTable);
     }
 
     @Override

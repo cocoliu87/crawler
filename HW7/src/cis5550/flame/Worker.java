@@ -123,6 +123,35 @@ class Worker extends cis5550.generic.Worker {
             return "";
         });
 
+        post("/pairRdd/flatMapToPair", (request, response) -> {
+            String input = "", output = "", fromRow = null, toRow = null, coordinator = "";
+            for (String key: request.queryParams()) {
+                switch (key) {
+                    case "input" -> input = request.queryParams(key);
+                    case "output" -> output = request.queryParams(key);
+                    case "fromRow" -> fromRow = request.queryParams(key);
+                    case "toRow" -> toRow = request.queryParams(key);
+                    case "coordinator" -> coordinator = request.queryParams(key);
+                }
+            }
+
+            FlamePairRDD.PairToPairIterable lambda = (FlamePairRDD.PairToPairIterable) Serializer.byteArrayToObject(request.bodyAsBytes(), myJAR);
+            KVSClient client = new KVSClient(coordinator);
+            Iterator<Row> rows = client.scan(input, fromRow, toRow);
+            while (rows.hasNext()) {
+                Row r = rows.next();
+                for (String c: r.columns()) {
+                    FlamePair fp = new FlamePair(r.key(), r.get(c));
+                    Iterator<FlamePair> values = lambda.op(fp).iterator();
+                    while (values.hasNext()) {
+                        FlamePair newFp = values.next();
+                        client.put(output, newFp.a, UUID.randomUUID().toString().split("-")[0], newFp.b);
+                    }
+                }
+            }
+            return "";
+        });
+
         post("/pairRDD/join", (request, response) -> {
             String input = "", output = "", fromRow = null, toRow = null, coordinator = "", joinTo = "";
             for (String key: request.queryParams()) {
