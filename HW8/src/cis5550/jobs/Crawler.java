@@ -13,13 +13,11 @@ import javax.swing.text.html.parser.ParserDelegator;
 import java.io.*;
 import java.net.HttpURLConnection;
 import java.net.URI;
+import java.net.URISyntaxException;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.sql.Array;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Iterator;
-import java.util.List;
+import java.util.*;
 
 public class Crawler {
     public static void run(cis5550.flame.FlameContext ctx, String[] args) throws Exception {
@@ -35,15 +33,37 @@ public class Crawler {
                     return List.of();
                 }
 
-                HttpURLConnection conn = (HttpURLConnection) (new URI(url).toURL()).openConnection();
-                conn.setRequestMethod("HEAD");
-                conn.connect();
-                int code = conn.getResponseCode();
-                String contentType = conn.getContentType();
-                if (code != 200 && !contentType.equals("text/html")) {
+                Map<Integer, String> head = headCheckCode(url);
+                int headCode = 0;
+                String redirect = "";
+                for (Map.Entry<Integer, String> entry: head.entrySet()){
+                    headCode = entry.getKey();
+                    redirect = entry.getValue();
+                }
+                //if (code != 200 && !contentType.equals("text/html")) {
+                if (headCode < 0) {
                     return List.of();
                 }
 
+                // redirect to url fetched from Location
+                if (new HashSet<>(List.of(301, 302, 303, 307, 308)).contains(headCode)) {
+                    return List.of(redirect);
+                }
+
+                String hostName = URLParser.parseURL(url)[1];
+                byte[] timeBytes = client.get("hosts", hostName, "time");
+                if (timeBytes != null) {
+                    String lastTime = new String(client.get("hosts", hostName, "time"), StandardCharsets.UTF_8);
+                    if (!lastTime.isEmpty()) {
+                        long lastTimeLong = Long.parseLong(lastTime);
+                        if (lastTimeLong > 0 && System.currentTimeMillis() - lastTimeLong < 100) {
+                            return List.of(url);
+                        }
+                    }
+                }
+                client.put("hosts", hostName, "time", String.valueOf(System.currentTimeMillis()));
+
+                HttpURLConnection conn;
                 conn = (HttpURLConnection) (new URI(url).toURL()).openConnection();
                 conn.setRequestMethod("GET");
                 conn.setRequestProperty("User-Agent", "cis5550-crawler");
@@ -69,7 +89,28 @@ public class Crawler {
                 }
                 return links;
             });
+            Thread.sleep(100);
         }
+    }
+
+    public static Map<Integer, String> headCheckCode(String url) throws IOException, URISyntaxException {
+        // .jpg, .jpeg, .gif, .png, or .txt are not allowed
+        String[] blocked = new String[]{".jpg", ".jpeg", ".gif", ".png", ".txt"};
+        Map<Integer, String> map = new HashMap<>();
+        for (String b: blocked) {
+            if (url.endsWith(b)){
+                map.put(-1, "");
+                return map;
+            }
+        }
+        HttpURLConnection conn = (HttpURLConnection) (new URI(url).toURL()).openConnection();
+        conn.setRequestMethod("HEAD");
+        conn.connect();
+        int code = conn.getResponseCode();
+        //String contentType = conn.getContentType();
+        conn.disconnect();
+        map.put(code, conn.getHeaderField("Location"));
+        return map;
     }
 
     public static List<String> getAllUrls(String page) throws IOException {
