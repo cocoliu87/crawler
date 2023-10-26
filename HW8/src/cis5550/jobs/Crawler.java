@@ -18,6 +18,7 @@ import java.nio.charset.StandardCharsets;
 import java.sql.Array;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Iterator;
 import java.util.List;
 
 public class Crawler {
@@ -27,15 +28,14 @@ public class Crawler {
         FlameRDDImpl urlQueue = (FlameRDDImpl) ctx.parallelize(Arrays.asList(args));
 
         String crawlerTable = "pt-crawl";
-
         while (urlQueue.count() != 0) {
-            urlQueue = (FlameRDDImpl) urlQueue.flatMap(s -> {
+            urlQueue = (FlameRDDImpl) urlQueue.flatMap(url -> {
                 KVSClient client = ctx.getKVS();
-                if (client.getRow(crawlerTable, Hasher.hash(args[0])) != null) {
+                if (client.getRow(crawlerTable, Hasher.hash(url)) != null) {
                     return List.of();
                 }
 
-                HttpURLConnection conn = (HttpURLConnection)(new URI(args[0]).toURL()).openConnection();
+                HttpURLConnection conn = (HttpURLConnection) (new URI(url).toURL()).openConnection();
                 conn.setRequestMethod("HEAD");
                 conn.connect();
                 int code = conn.getResponseCode();
@@ -44,7 +44,7 @@ public class Crawler {
                     return List.of();
                 }
 
-                conn = (HttpURLConnection)(new URI(args[0]).toURL()).openConnection();
+                conn = (HttpURLConnection) (new URI(url).toURL()).openConnection();
                 conn.setRequestMethod("GET");
                 conn.setRequestProperty("User-Agent", "cis5550-crawler");
                 conn.connect();
@@ -59,13 +59,13 @@ public class Crawler {
                         line = reader.readLine();
                         page.append(line);
                     } while (line != null);
-                    Row r = new Row(Hasher.hash(conn.getURL().toString()));
-                    r.put("url", conn.getURL().toString());
+                    Row r = new Row(Hasher.hash(url));
+                    r.put("url", url);
                     r.put("page", page.toString());
 
                     client.putRow(crawlerTable, r);
                     input.close();
-                    links = processUrls(getAllUrls(page.toString()), conn.getURL().toString());
+                    links = processUrls(getAllUrls(page.toString()), url);
                 }
                 return links;
             });
