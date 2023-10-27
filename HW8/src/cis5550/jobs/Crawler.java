@@ -11,27 +11,35 @@ import javax.swing.text.html.HTML;
 import javax.swing.text.html.HTMLEditorKit;
 import javax.swing.text.html.parser.ParserDelegator;
 import java.io.*;
-import java.net.HttpURLConnection;
-import java.net.URI;
-import java.net.URISyntaxException;
-import java.net.URL;
+import java.net.*;
 import java.nio.charset.StandardCharsets;
 import java.sql.Array;
 import java.util.*;
 
 public class Crawler {
+    static final String crawlerTable = "pt-crawl", hostsTable = "hosts", timeCol = "time", robotCol = "robot", agent = "cis5550-crawler";
+    static Map<String, String> robots = new HashMap<>();
     public static void run(cis5550.flame.FlameContext ctx, String[] args) throws Exception {
         ctx.output(args.length == 1? "OK\n" : "Error: Crawler expects one argument\n");
 
         FlameRDDImpl urlQueue = (FlameRDDImpl) ctx.parallelize(Arrays.asList(args));
 
-        String crawlerTable = "pt-crawl";
         while (urlQueue.count() != 0) {
             urlQueue = (FlameRDDImpl) urlQueue.flatMap(url -> {
                 KVSClient client = ctx.getKVS();
                 if (client.getRow(crawlerTable, Hasher.hash(url)) != null) {
                     return List.of();
                 }
+                String[] domains = URLParser.parseURL(url);
+                String host = domains[0] + domains[1];
+                if (!robots.containsKey(host)) {
+                    getCheckRobot(host, client, hostsTable);
+                }
+
+                if (invalidForCrawl(host)) {
+                    return List.of();
+                }
+
 
                 Map<Integer, String> head = headCheckCode(url);
                 int headCode = 0;
@@ -51,9 +59,9 @@ public class Crawler {
                 }
 
                 String hostName = URLParser.parseURL(url)[1];
-                byte[] timeBytes = client.get("hosts", hostName, "time");
+                byte[] timeBytes = client.get(hostsTable, hostName, timeCol);
                 if (timeBytes != null) {
-                    String lastTime = new String(client.get("hosts", hostName, "time"), StandardCharsets.UTF_8);
+                    String lastTime = new String(client.get(hostsTable, hostName, timeCol), StandardCharsets.UTF_8);
                     if (!lastTime.isEmpty()) {
                         long lastTimeLong = Long.parseLong(lastTime);
                         if (lastTimeLong > 0 && System.currentTimeMillis() - lastTimeLong < 100) {
@@ -66,7 +74,7 @@ public class Crawler {
                 HttpURLConnection conn;
                 conn = (HttpURLConnection) (new URI(url).toURL()).openConnection();
                 conn.setRequestMethod("GET");
-                conn.setRequestProperty("User-Agent", "cis5550-crawler");
+                conn.setRequestProperty("User-Agent", agent);
                 conn.setRequestProperty("Content-Type", "text/html");
                 conn.connect();
                 int responseCode = conn.getResponseCode();
@@ -180,5 +188,54 @@ public class Crawler {
 
         }
         return processed;
+    }
+
+    public static void getCheckRobot(String host, KVSClient client, String tableName) throws URISyntaxException, IOException {
+        String url = host + "/robots.txt";
+        HttpURLConnection conn = (HttpURLConnection) (new URI(url).toURL()).openConnection();
+        conn.setRequestMethod("GET");
+        conn.connect();
+        int code = conn.getResponseCode();
+        if (code == 200) {
+            InputStreamReader input = new InputStreamReader((InputStream) conn.getContent());
+            BufferedReader reader = new BufferedReader(input);
+            StringBuilder page = new StringBuilder();
+            String line;
+            do {
+                line = reader.readLine();
+                page.append(line).append("\n");
+            } while (line != null);
+            Row r = new Row(Hasher.hash(url));
+            r.put(robotCol, url);
+
+            client.putRow(tableName, r);
+            input.close();
+
+            robots.put(host, page.toString());
+        }
+    }
+
+    public static boolean invalidForCrawl(String host) {
+        if (!robots.containsKey(host)) {
+            return false;
+        }
+        String[] policies = robots.get(host).split(System.lineSeparator());
+        for (String p: policies) {
+            if (p.contains(":")) {
+                String[] strs = p.split(":");
+                String key = strs[0].strip().toLowerCase();
+                if (key.equals("user-agent")) {
+                    String value = strs[1].strip();
+                    return value.equals("*") || value.equals(agent);
+                }
+                if (key.equals("disallow")) {
+
+                }
+                if (key.equals("allow")) {
+
+                }
+            }
+        }
+        return true;
     }
 }
