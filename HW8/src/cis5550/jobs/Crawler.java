@@ -67,6 +67,7 @@ public class Crawler {
                 conn = (HttpURLConnection) (new URI(url).toURL()).openConnection();
                 conn.setRequestMethod("GET");
                 conn.setRequestProperty("User-Agent", "cis5550-crawler");
+                conn.setRequestProperty("Content-Type", "text/html");
                 conn.connect();
                 int responseCode = conn.getResponseCode();
                 List<String> links = new ArrayList<>();
