@@ -26,17 +26,18 @@ public class Crawler {
         AtomicReference<Double> crawlInterval = new AtomicReference<>(0.1);
         while (urlQueue.count() != 0) {
             urlQueue = (FlameRDDImpl) urlQueue.flatMap(url -> {
+                if (!isValidUrl(url)) return List.of();
                 KVSClient client = ctx.getKVS();
                 if (client.getRow(crawlerTable, Hasher.hash(url)) != null) {
                     return List.of();
                 }
                 String[] domains = URLParser.parseURL(url);
-                String host = domains[0] + domains[1];
+                String host = domains[0] + "://" + domains[1];
                 if (!robots.containsKey(host)) {
                     getCheckRobot(host, client, hostsTable);
                 }
 
-                RobotRules robotRules = invalidForCrawl(host);
+                RobotRules robotRules = invalidForCrawl(domains[1]);
 
                 // if rules are not null, we need respect the rules
                 if (robotRules != null) {
@@ -59,7 +60,8 @@ public class Crawler {
                         disallowed = disallowedRule.DisallowedHost;
                         pDisallowed = disallowedRule.Priority;
                     }
-                    boolean matchAllowed = !allowed.isEmpty() && host.startsWith(allowed), matchDisallowed = !disallowed.isEmpty() && host.startsWith(disallowed);
+                    boolean matchAllowed = !allowed.isEmpty() && domains[1].startsWith(allowed),
+                            matchDisallowed = !disallowed.isEmpty() && domains[1].startsWith(disallowed);
                     // TODO: check if empty rules is allowing all
                     // pDisallowed == 1, or pDisallowed = -1
                     if (pAllowed == 0) {
@@ -242,6 +244,17 @@ public class Crawler {
         }
         return processed;
     }
+    public static boolean isValidUrl(String url) {
+        try {
+            URL obj = new URL(url);
+            obj.toURI();
+            return true;
+        } catch (MalformedURLException e) {
+            return false;
+        } catch (URISyntaxException e) {
+            return false;
+        }
+    }
 
     /**
      * Check if the host has robots file to claim rules for crawling. This method checks the file and push the content to
@@ -253,6 +266,9 @@ public class Crawler {
      * @throws IOException
      */
     public static void getCheckRobot(String host, KVSClient client, String tableName) throws URISyntaxException, IOException {
+        if (!isValidUrl(host)) {
+            return;
+        }
         String url = host + "/robots.txt";
         HttpURLConnection conn = (HttpURLConnection) (new URI(url).toURL()).openConnection();
         conn.setRequestMethod("GET");
