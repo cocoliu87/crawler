@@ -99,22 +99,27 @@ public class Crawler {
     }
 
     public static List<String> crawlPage(String url, KVSClient client) throws IOException, URISyntaxException {
-        Map<Integer, String> head = headCheckCode(url);
-        int headCode = 0;
-        String redirect = "";
-        for (Map.Entry<Integer, String> entry: head.entrySet()){
-            headCode = entry.getKey();
-            redirect = entry.getValue();
+        String[] blocked = new String[]{".jpg", ".jpeg", ".gif", ".png", ".txt"};
+        for (String b: blocked) {
+            if (url.endsWith(b)){
+                return List.of();
+            }
         }
-        //if (code != 200 && !contentType.equals("text/html")) {
-        if (headCode < 0) {
-            return List.of();
-        }
-
+        HttpURLConnection conn = (HttpURLConnection) (new URI(url).toURL()).openConnection();
+        conn.setRequestMethod("HEAD");
+        conn.connect();
+        int code = conn.getResponseCode();
         // redirect to url fetched from Location
-        if (new HashSet<>(List.of(301, 302, 303, 307, 308)).contains(headCode)) {
+        if (new HashSet<>(List.of(301, 302, 303, 307, 308)).contains(code)) {
+            String redirect = conn.getHeaderField("Location");
             return List.of(redirect);
         }
+
+        String contentType = conn.getContentType();
+        int length = conn.getContentLength();
+        conn.disconnect();
+        if (code != 200 || !contentType.equals("text/html"))
+            return List.of();
 
         String hostName = URLParser.parseURL(url)[1];
         byte[] timeBytes = client.get(hostsTable, hostName, timeCol);
@@ -129,7 +134,6 @@ public class Crawler {
         }
         client.put("hosts", hostName, "time", String.valueOf(System.currentTimeMillis()));
 
-        HttpURLConnection conn;
         conn = (HttpURLConnection) (new URI(url).toURL()).openConnection();
         conn.setRequestMethod("GET");
         conn.setRequestProperty("User-Agent", agent);
@@ -149,6 +153,9 @@ public class Crawler {
             Row r = new Row(Hasher.hash(url));
             r.put("url", url);
             r.put("page", page.toString());
+            r.put("contentType", contentType);
+            r.put("length", String.valueOf(length));
+            r.put("responseCode", String.valueOf(code));
 
             client.putRow(crawlerTable, r);
             input.close();
@@ -171,8 +178,12 @@ public class Crawler {
         conn.setRequestMethod("HEAD");
         conn.connect();
         int code = conn.getResponseCode();
-        //String contentType = conn.getContentType();
+        String contentType = conn.getContentType();
+        int length = conn.getContentLength();
         conn.disconnect();
+        if (code != 200 || !contentType.equals("text/html"))
+            return map;
+
         map.put(code, conn.getHeaderField("Location"));
         return map;
     }
@@ -259,9 +270,9 @@ public class Crawler {
     /**
      * Check if the host has robots file to claim rules for crawling. This method checks the file and push the content to
      * RDD table and saves to local cache
-     * @param host
-     * @param client
-     * @param tableName
+     * @param host the url's host name
+     * @param client the KVS client that will be used for RDD ops
+     * @param tableName the RDD table name
      * @throws URISyntaxException
      * @throws IOException
      */
@@ -295,7 +306,7 @@ public class Crawler {
 
     /**
      * Check if the robots rules
-     * @param host
+     * @param host the URL hostname
      * @return
      */
     public static RobotRules invalidForCrawl(String host) {
