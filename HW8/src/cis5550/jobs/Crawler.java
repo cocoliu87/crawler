@@ -28,8 +28,8 @@ public class Crawler {
         while (urlQueue.count() != 0) {
             urlQueue = (FlameRDDImpl) urlQueue.flatMap(url -> {
                 url = addPort(url);
-                KVSClient client = ctx.getKVS();
                 if (!isValidUrl(url)) return List.of();
+                KVSClient client = ctx.getKVS();
                 if (client.getRow(crawlerTable, Hasher.hash(url)) != null) {
                     return List.of();
                 }
@@ -108,12 +108,19 @@ public class Crawler {
             }
         }
         HttpURLConnection conn = (HttpURLConnection) (new URI(url).toURL()).openConnection();
+        conn.setInstanceFollowRedirects(false);
         conn.setRequestMethod("HEAD");
         conn.connect();
         int code = conn.getResponseCode();
         // redirect to url fetched from Location
         if (new HashSet<>(List.of(301, 302, 303, 307, 308)).contains(code)) {
             String redirect = conn.getHeaderField("Location");
+            Row rr = new Row(Hasher.hash(url));
+            rr.put("url", url);
+            rr.put("contentType", conn.getContentType());
+            rr.put("length", String.valueOf(conn.getContentLength()));
+            rr.put("responseCode", String.valueOf(code));
+            conn.disconnect();
             return List.of(redirect);
         }
 
@@ -262,6 +269,8 @@ public class Crawler {
         return processed;
     }
     public static boolean isValidUrl(String url) {
+        if (url == null || url.isEmpty())
+            return false;
         try {
             URL obj = new URL(url);
             obj.toURI();
@@ -276,6 +285,9 @@ public class Crawler {
     public static String addPort(String url) throws IOException {
         String[] hosts = URLParser.parseURL(url);
         String protocol = hosts[0], hostName = hosts[1], port = hosts[2], subDomains = hosts[3];
+        if (protocol == null || hostName == null || hostName.isEmpty()) {
+            return "";
+        }
         if (protocol.equals("http") && port == null) port = "80";
         else if (protocol.equals("https") && port == null) port = "443";
         return protocol + "://" + hostName + ":" + port + subDomains;
