@@ -1,6 +1,7 @@
 package cis5550.jobs;
 
 import cis5550.flame.FlameRDDImpl;
+import cis5550.kvs.KVS;
 import cis5550.kvs.KVSClient;
 import cis5550.kvs.Row;
 import cis5550.tools.Hasher;
@@ -26,8 +27,9 @@ public class Crawler {
         AtomicReference<Double> crawlInterval = new AtomicReference<>(0.1);
         while (urlQueue.count() != 0) {
             urlQueue = (FlameRDDImpl) urlQueue.flatMap(url -> {
-                if (!isValidUrl(url)) return List.of();
+                url = addPort(url);
                 KVSClient client = ctx.getKVS();
+                if (!isValidUrl(url)) return List.of();
                 if (client.getRow(crawlerTable, Hasher.hash(url)) != null) {
                     return List.of();
                 }
@@ -142,25 +144,29 @@ public class Crawler {
         int responseCode = conn.getResponseCode();
         List<String> links = new ArrayList<>();
         if (responseCode == 200) {
-            InputStreamReader input = new InputStreamReader((InputStream) conn.getContent());
+            InputStream input = conn.getInputStream();
+            String text = new String(input.readAllBytes(), StandardCharsets.UTF_8);
+/*            InputStreamReader input = new InputStreamReader((InputStream) conn.getContent());
             BufferedReader reader = new BufferedReader(input);
             StringBuilder page = new StringBuilder();
             String line;
-            do {
+            while ((line = reader.readLine()) != null) page.append(line).append("\n");*/
+/*            do {
                 line = reader.readLine();
-                page.append(line);
-            } while (line != null);
+                if (line != null) page.append(line).append("\n");
+            } while (line != null);*/
             Row r = new Row(Hasher.hash(url));
             r.put("url", url);
-            r.put("page", page.toString());
+            r.put("page", text);
             r.put("contentType", contentType);
             r.put("length", String.valueOf(length));
             r.put("responseCode", String.valueOf(code));
 
             client.putRow(crawlerTable, r);
             input.close();
-            links = processUrls(getAllUrls(page.toString()), url);
+            links = processUrls(getAllUrls(text), url);
         }
+        conn.disconnect();
         return links;
     }
 
@@ -265,6 +271,14 @@ public class Crawler {
         } catch (URISyntaxException e) {
             return false;
         }
+    }
+
+    public static String addPort(String url) throws IOException {
+        String[] hosts = URLParser.parseURL(url);
+        String protocol = hosts[0], hostName = hosts[1], port = hosts[2], subDomains = hosts[3];
+        if (protocol.equals("http") && port == null) port = "80";
+        else if (protocol.equals("https") && port == null) port = "443";
+        return protocol + "://" + hostName + ":" + port + subDomains;
     }
 
     /**
