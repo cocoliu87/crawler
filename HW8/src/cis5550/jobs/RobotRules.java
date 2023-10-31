@@ -4,6 +4,7 @@ class RobotRules {
 
     double CrawlDelay;
     boolean ValidAgent;
+    boolean Set;
 
     AllowedRule allowedRule;
 

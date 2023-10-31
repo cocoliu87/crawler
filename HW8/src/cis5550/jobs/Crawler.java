@@ -1,7 +1,6 @@
 package cis5550.jobs;
 
 import cis5550.flame.FlameRDDImpl;
-import cis5550.kvs.KVS;
 import cis5550.kvs.KVSClient;
 import cis5550.kvs.Row;
 import cis5550.tools.Hasher;
@@ -26,10 +25,15 @@ public class Crawler {
         FlameRDDImpl urlQueue = (FlameRDDImpl) ctx.parallelize(Arrays.asList(args));
         AtomicReference<Double> crawlInterval = new AtomicReference<>(0.1);
         while (urlQueue.count() != 0) {
-            urlQueue = (FlameRDDImpl) urlQueue.flatMap(url -> {
-                url = addPort(url);
-                if (!isValidUrl(url)) return List.of();
+            urlQueue = (FlameRDDImpl) urlQueue.flatMap(oriUrl -> {
                 KVSClient client = ctx.getKVS();
+                String url = addPort(oriUrl);
+                Row dr = new Row(url);
+                dr.put("original-url", oriUrl);
+                client.putRow("debug-table", dr);
+                //if (!isValidUrl(url)) return List.of();
+                if (url.isEmpty()) return List.of();
+
                 if (client.getRow(crawlerTable, Hasher.hash(url)) != null) {
                     return List.of();
                 }
@@ -39,7 +43,16 @@ public class Crawler {
                     getCheckRobot(host, client, hostsTable);
                 }
 
-                RobotRules robotRules = invalidForCrawl(domains[1]);
+                List<RobotRules> rules = validateRobotRules(host);
+
+                RobotRules robotRules = null;
+
+                for (RobotRules rule: rules) {
+                    if (rule.isValidAgent()) {
+                        robotRules = rule;
+                        break;
+                    }
+                }
 
                 // if rules are not null, we need respect the rules
                 if (robotRules != null) {
@@ -62,8 +75,8 @@ public class Crawler {
                         disallowed = disallowedRule.DisallowedHost;
                         pDisallowed = disallowedRule.Priority;
                     }
-                    boolean matchAllowed = !allowed.isEmpty() && domains[1].startsWith(allowed),
-                            matchDisallowed = !disallowed.isEmpty() && domains[1].startsWith(disallowed);
+                    boolean matchAllowed = !allowed.isEmpty() && (domains[1].contains(allowed) || domains[3].startsWith(allowed)),
+                            matchDisallowed = !disallowed.isEmpty() && (domains[1].contains(disallowed) || domains[3].startsWith(disallowed));
                     // TODO: check if empty rules is allowing all
                     // pDisallowed == 1, or pDisallowed = -1
                     if (pAllowed == 0) {
@@ -127,8 +140,15 @@ public class Crawler {
         String contentType = conn.getContentType();
         int length = conn.getContentLength();
         conn.disconnect();
-        if (code != 200 || !contentType.equals("text/html"))
+        if (code != 200 || !contentType.equals("text/html")) {
+            Row rr = new Row(Hasher.hash(url));
+            rr.put("url", url);
+            rr.put("contentType", conn.getContentType());
+            rr.put("length", String.valueOf(conn.getContentLength()));
+            rr.put("responseCode", String.valueOf(code));
+            client.putRow(crawlerTable, rr);
             return List.of();
+        }
 
         String hostName = URLParser.parseURL(url)[1];
         byte[] timeBytes = client.get(hostsTable, hostName, timeCol);
@@ -153,15 +173,6 @@ public class Crawler {
         if (responseCode == 200) {
             InputStream input = conn.getInputStream();
             String text = new String(input.readAllBytes(), StandardCharsets.UTF_8);
-/*            InputStreamReader input = new InputStreamReader((InputStream) conn.getContent());
-            BufferedReader reader = new BufferedReader(input);
-            StringBuilder page = new StringBuilder();
-            String line;
-            while ((line = reader.readLine()) != null) page.append(line).append("\n");*/
-/*            do {
-                line = reader.readLine();
-                if (line != null) page.append(line).append("\n");
-            } while (line != null);*/
             Row r = new Row(Hasher.hash(url));
             r.put("url", url);
             r.put("page", text);
@@ -303,30 +314,24 @@ public class Crawler {
      * @throws IOException
      */
     public static void getCheckRobot(String host, KVSClient client, String tableName) throws URISyntaxException, IOException {
-        if (!isValidUrl(host)) {
+/*        if (!(host)) {
             return;
-        }
+        }*/
         String url = host + "/robots.txt";
         HttpURLConnection conn = (HttpURLConnection) (new URI(url).toURL()).openConnection();
         conn.setRequestMethod("GET");
         conn.connect();
         int code = conn.getResponseCode();
         if (code == 200) {
-            InputStreamReader input = new InputStreamReader((InputStream) conn.getContent());
-            BufferedReader reader = new BufferedReader(input);
-            StringBuilder page = new StringBuilder();
-            String line;
-            do {
-                line = reader.readLine();
-                page.append(line).append("\n");
-            } while (line != null);
+            InputStream input = conn.getInputStream();
+            String text = new String(input.readAllBytes(), StandardCharsets.UTF_8);
             Row r = new Row(Hasher.hash(url));
             r.put(robotCol, url);
 
             client.putRow(tableName, r);
             input.close();
 
-            robots.put(host, page.toString());
+            robots.put(host, text);
         }
     }
 
@@ -335,17 +340,24 @@ public class Crawler {
      * @param host the URL hostname
      * @return
      */
-    public static RobotRules invalidForCrawl(String host) {
+    public static List<RobotRules> validateRobotRules(String host) {
         if (!robots.containsKey(host)) {
-            return null;
+            return List.of();
         }
         String[] policies = robots.get(host).split(System.lineSeparator());
+        List<RobotRules> robotRules = new ArrayList<>();
         RobotRules rule = new RobotRules();
         for (String policy: policies) {
             if (policy.contains(":")) {
                 String[] strs = policy.split(":");
                 String key = strs[0].strip().toLowerCase();
                 if (key.equals("user-agent")) {
+                    if (rule.Set) {
+                        robotRules.add(rule);
+                        rule = new RobotRules();
+                    }
+                    rule.Set = true;
+
                     String value = strs[1].strip();
                     rule.setValidAgent(value.equals("*") || value.equals(agent));
                 }
@@ -365,6 +377,7 @@ public class Crawler {
                 }
             }
         }
-        return rule;
+        robotRules.add(rule);
+        return robotRules;
     }
 }
