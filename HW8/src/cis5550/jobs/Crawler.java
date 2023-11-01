@@ -45,6 +45,7 @@ public class Crawler {
                 RobotRules robotRules = null;
 
                 for (RobotRules rule: rules) {
+                    // only respect to the first encountered valid rule
                     if (rule.isValidAgent()) {
                         robotRules = rule;
                         break;
@@ -64,36 +65,40 @@ public class Crawler {
                     int pAllowed = -1, pDisallowed = -1;
                     AllowedRule allowedRule = robotRules.getAllowedRule();
                     DisallowedRule disallowedRule = robotRules.getDisallowedRule();
-                    if (allowedRule != null) {
-                        allowed = allowedRule.AllowedHost;
-                        pAllowed = allowedRule.Priority;
-                    }
-                    if (disallowedRule != null) {
-                        disallowed = disallowedRule.DisallowedHost;
-                        pDisallowed = disallowedRule.Priority;
-                    }
-                    boolean matchAllowed = !allowed.isEmpty() && (domains[1].contains(allowed) || domains[3].startsWith(allowed)),
-                            matchDisallowed = !disallowed.isEmpty() && (domains[1].contains(disallowed) || domains[3].startsWith(disallowed));
-                    // TODO: check if empty rules is allowing all
-                    if (pAllowed == 0) {
-                        if (matchAllowed)
-                            return crawlPage(url, client);
-                        else
-                            return List.of();
-                    }
 
-                    if (pDisallowed == 0) {
-                        if (matchDisallowed)
-                            return List.of();
-                        else {
-                            if (pAllowed == 1) {
-                                if (matchAllowed) {
-                                    return crawlPage(url, client);
-                                } else {
-                                    return List.of();
-                                }
-                            } else {
+                    // unset rules allow everything - default allow
+                    if (allowedRule != null || disallowedRule != null) {
+                        if (allowedRule != null) {
+                            allowed = allowedRule.AllowedHost;
+                            pAllowed = allowedRule.Priority;
+                        }
+                        if (disallowedRule != null) {
+                            disallowed = disallowedRule.DisallowedHost;
+                            pDisallowed = disallowedRule.Priority;
+                        }
+                        boolean matchAllowed = !allowed.isEmpty() && (domains[1].contains(allowed) || domains[3].startsWith(allowed)),
+                                matchDisallowed = !disallowed.isEmpty() && (domains[1].contains(disallowed) || domains[3].startsWith(disallowed));
+                        // TODO: check if empty rules is allowing all
+                        if (pAllowed == 0) {
+                            if (matchAllowed)
                                 return crawlPage(url, client);
+                            else
+                                return List.of();
+                        }
+
+                        if (pDisallowed == 0) {
+                            if (matchDisallowed)
+                                return List.of();
+                            else {
+                                if (pAllowed == 1) {
+                                    if (matchAllowed) {
+                                        return crawlPage(url, client);
+                                    } else {
+                                        return List.of();
+                                    }
+                                } else {
+                                    return crawlPage(url, client);
+                                }
                             }
                         }
                     }
@@ -222,8 +227,6 @@ public class Crawler {
                 if (url.contains("#")) {
                     url = url.split("#")[0];
                     if (url.isEmpty()) {
-                        // TODO: this should be same as current url
-                        // confirm if skip or still add it (possible infinite search)
                         continue;
                     } else {
                         String[] domains = subDomains.split("/");
