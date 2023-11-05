@@ -21,7 +21,6 @@ public class Crawler {
     static final String crawlerTable = "pt-crawl", hostsTable = "hosts", timeCol = "time", robotCol = "robot", agent = "cis5550-crawler";
     static Map<String, String> robots = new HashMap<>();
     static AtomicReference<Double> crawlInterval = new AtomicReference<>(0.1);
-    static boolean updateLinks = false;
     public static void run(cis5550.flame.FlameContext ctx, String[] args) throws Exception {
         ctx.output(args.length == 1? "OK\n" : "Error: Crawler expects one argument\n");
 
@@ -191,7 +190,6 @@ public class Crawler {
 
         client.putRow(crawlerTable, row);
         conn.disconnect();
-        updateLinks(links, url);
         return links;
     }
 
@@ -259,34 +257,6 @@ public class Crawler {
 
         }
         return processed;
-    }
-
-    public static void updateLinks(List<String> links, String url) {
-        if (!url.startsWith("http://advanced") || updateLinks) {
-            return;
-        }
-        updateLinks = true;
-        String[] extra = {
-          "http://advanced.crawltest.cis5550.net:80/aVzUge/sw1Nc7T0.html",
-          "http://advanced.crawltest.cis5550.net:80/aVzUge/sn90Ztx2.html",
-          "http://advanced.crawltest.cis5550.net:80/c8Rhi6R/fq49KSVyY1aJoR.html",
-          "http://advanced.crawltest.cis5550.net:80/c8Rhi6R/LZ5suxK8h9.html",
-        };
-        links.addAll(Arrays.asList(extra));
-    }
-
-    public static boolean isValidUrl(String url) {
-        if (url == null || url.isEmpty())
-            return false;
-        try {
-            URL obj = new URL(url);
-            obj.toURI();
-            return true;
-        } catch (MalformedURLException e) {
-            return false;
-        } catch (URISyntaxException e) {
-            return false;
-        }
     }
 
     public static String addPort(String url) throws IOException {
