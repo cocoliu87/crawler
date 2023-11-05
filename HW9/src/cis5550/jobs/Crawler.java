@@ -1,5 +1,6 @@
 package cis5550.jobs;
 
+import cis5550.flame.FlameContext;
 import cis5550.flame.FlameRDDImpl;
 import cis5550.kvs.KVSClient;
 import cis5550.kvs.Row;
@@ -27,90 +28,92 @@ public class Crawler {
         FlameRDDImpl urlQueue = (FlameRDDImpl) ctx.parallelize(Arrays.asList(args));
 
         while (urlQueue.count() != 0) {
-            urlQueue = (FlameRDDImpl) urlQueue.flatMap(oriUrl -> {
-                KVSClient client = ctx.getKVS();
-                String url = addPort(oriUrl);
-
-                if (url.isEmpty() || client.getRow(crawlerTable, Hasher.hash(url)) != null) {
-                    return List.of();
-                }
-                String[] domains = URLParser.parseURL(url);
-                String host = domains[0] + "://" + domains[1];
-                if (!robots.containsKey(host)) {
-                    getCheckRobot(host, client, hostsTable);
-                }
-
-                List<RobotRules> rules = validateRobotRules(host);
-
-                RobotRules robotRules = null;
-
-                for (RobotRules rule: rules) {
-                    // only respect to the first encountered valid rule
-                    if (rule.isValidAgent()) {
-                        robotRules = rule;
-                        break;
-                    }
-                }
-
-                // if rules are not null, we need respect the rules
-                if (robotRules != null) {
-                    if (robotRules.CrawlDelay != 0)
-                        crawlInterval.set(robotRules.CrawlDelay);
-                    // agent is not valid to crawl
-                    if (!robotRules.isValidAgent()) {
-                        return List.of();
-                    }
-
-                    String allowed = "", disallowed = "";
-                    int pAllowed = -1, pDisallowed = -1;
-                    AllowedRule allowedRule = robotRules.getAllowedRule();
-                    DisallowedRule disallowedRule = robotRules.getDisallowedRule();
-
-                    // unset rules allow everything - default allow
-                    if (allowedRule != null || disallowedRule != null) {
-                        if (allowedRule != null) {
-                            allowed = allowedRule.AllowedHost;
-                            pAllowed = allowedRule.Priority;
-                        }
-                        if (disallowedRule != null) {
-                            disallowed = disallowedRule.DisallowedHost;
-                            pDisallowed = disallowedRule.Priority;
-                        }
-                        boolean matchAllowed = !allowed.isEmpty() && (domains[1].contains(allowed) || domains[3].startsWith(allowed)),
-                                matchDisallowed = !disallowed.isEmpty() && (domains[1].contains(disallowed) || domains[3].startsWith(disallowed));
-                        // TODO: check if empty rules is allowing all
-                        if (pAllowed == 0) {
-                            if (matchAllowed)
-                                return crawlPage(url, client);
-                            else
-                                return List.of();
-                        }
-
-                        if (pDisallowed == 0) {
-                            if (matchDisallowed)
-                                return List.of();
-                            else {
-                                if (pAllowed == 1) {
-                                    if (matchAllowed) {
-                                        return crawlPage(url, client);
-                                    } else {
-                                        return List.of();
-                                    }
-                                } else {
-                                    return crawlPage(url, client);
-                                }
-                            }
-                        }
-                    }
-
-                    //both pAllowed and pDisallowed == -1 (unset)
-                    return crawlPage(url, client);
-                } else {
-                    // not found robot file
-                    return crawlPage(url, client);
-                }
-            });
+            urlQueue = (FlameRDDImpl) urlQueue.flatMap(oriUrl -> collectAllValidUrls(ctx, oriUrl));
             Thread.sleep((long) (crawlInterval.get()*1000));
+        }
+    }
+
+    public static List<String> collectAllValidUrls(FlameContext ctx, String oriUrl) throws IOException, URISyntaxException {
+        KVSClient client = ctx.getKVS();
+        String url = addPort(oriUrl);
+
+        if (url.isEmpty() || client.getRow(crawlerTable, Hasher.hash(url)) != null) {
+            return List.of();
+        }
+        String[] domains = URLParser.parseURL(url);
+        String host = domains[0] + "://" + domains[1];
+        if (!robots.containsKey(host)) {
+            getCheckRobot(host, client, hostsTable);
+        }
+
+        List<RobotRules> rules = validateRobotRules(host);
+
+        RobotRules robotRules = null;
+
+        for (RobotRules rule: rules) {
+            // only respect to the first encountered valid rule
+            if (rule.isValidAgent()) {
+                robotRules = rule;
+                break;
+            }
+        }
+
+        // if rules are not null, we need respect the rules
+        if (robotRules != null) {
+            if (robotRules.CrawlDelay != 0)
+                crawlInterval.set(robotRules.CrawlDelay);
+            // agent is not valid to crawl
+            if (!robotRules.isValidAgent()) {
+                return List.of();
+            }
+
+            String allowed = "", disallowed = "";
+            int pAllowed = -1, pDisallowed = -1;
+            AllowedRule allowedRule = robotRules.getAllowedRule();
+            DisallowedRule disallowedRule = robotRules.getDisallowedRule();
+
+            // unset rules allow everything - default allow
+            if (allowedRule != null || disallowedRule != null) {
+                if (allowedRule != null) {
+                    allowed = allowedRule.AllowedHost;
+                    pAllowed = allowedRule.Priority;
+                }
+                if (disallowedRule != null) {
+                    disallowed = disallowedRule.DisallowedHost;
+                    pDisallowed = disallowedRule.Priority;
+                }
+                boolean matchAllowed = !allowed.isEmpty() && (domains[1].contains(allowed) || domains[3].startsWith(allowed)),
+                        matchDisallowed = !disallowed.isEmpty() && (domains[1].contains(disallowed) || domains[3].startsWith(disallowed));
+                // TODO: check if empty rules is allowing all
+                if (pAllowed == 0) {
+                    if (matchAllowed)
+                        return crawlPage(url, client);
+                    else
+                        return List.of();
+                }
+
+                if (pDisallowed == 0) {
+                    if (matchDisallowed)
+                        return List.of();
+                    else {
+                        if (pAllowed == 1) {
+                            if (matchAllowed) {
+                                return crawlPage(url, client);
+                            } else {
+                                return List.of();
+                            }
+                        } else {
+                            return crawlPage(url, client);
+                        }
+                    }
+                }
+            }
+
+            //both pAllowed and pDisallowed == -1 (unset)
+            return crawlPage(url, client);
+        } else {
+            // not found robot file
+            return crawlPage(url, client);
         }
     }
 

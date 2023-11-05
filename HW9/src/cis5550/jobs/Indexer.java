@@ -21,12 +21,14 @@ public class Indexer {
                 pairs.add(new FlamePair(word, url));
             }
             return pairs;
-        }).foldByKey("", (s1, s2) -> s1 + (s1.isEmpty()? "":", ") + s2);
+        }).foldByKey("", (s1, s2) -> s1 + (s1.isEmpty()? "":",") + s2);
         pRdd.saveAsTable(indexerTableName);
     }
 
     public static String removeAllSpecialCharacters(String page) {
         // replaceAll("\<.*?\>", "")
-        return page.replaceAll("<[^>]*>", "").replaceAll("\\p{Punct}", "");
+        return page.replaceAll("<[^>]*>", "")
+                .replaceAll("\\p{Punct}", "")
+                .toLowerCase();
     }
 }
