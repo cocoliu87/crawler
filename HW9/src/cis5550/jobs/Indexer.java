@@ -17,8 +17,11 @@ public class Indexer {
             page = removeAllSpecialCharacters(page);
             Set<String> words = new HashSet<>(Arrays.asList(page.split("\\W+")));
             List<FlamePair> pairs = new ArrayList<>();
+            Map<String, List<String>> wordPosMap = posWord(page);
             for (String word: words) {
-                pairs.add(new FlamePair(word, url));
+                String posUrl = url + ":" + String.join(" ", wordPosMap.get(word));
+                System.out.println(word + "\n" + posUrl);
+                pairs.add(new FlamePair(word, posUrl));
             }
             return pairs;
         }).foldByKey("", (s1, s2) -> s1 + (s1.isEmpty()? "":",") + s2);
@@ -30,5 +33,19 @@ public class Indexer {
         return page.replaceAll("<[^>]*>", "")
                 .replaceAll("\\p{Punct}", "")
                 .toLowerCase();
+    }
+
+    public static Map<String, List<String>> posWord(String page) {
+        Map<String, List<String>> map = new HashMap<>();
+        String[] strs = page.split("\\W+");
+        for (int i = 0; i < strs.length; i++) {
+            String word = strs[i];
+            if (map.containsKey(word)) continue;
+            map.computeIfAbsent(word, k -> new ArrayList<>()).add(String.valueOf(i+1));
+            for (int j = i+1; j < strs.length; j++) {
+                if (strs[j].equals(word)) map.get(word).add(String.valueOf(j+1));
+            }
+        }
+        return map;
     }
 }
