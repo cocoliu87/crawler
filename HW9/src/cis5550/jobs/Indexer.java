@@ -20,7 +20,7 @@ public class Indexer {
             Map<String, List<String>> wordPosMap = posWord(page);
             for (String word: words) {
                 String posUrl = url + ":" + String.join(" ", wordPosMap.get(word));
-                System.out.println(word + "\n" + posUrl);
+//                System.out.println(word + "\n" + posUrl);
                 pairs.add(new FlamePair(word, posUrl));
                 pairs.add(new FlamePair(stemWord(word), posUrl));
             }
