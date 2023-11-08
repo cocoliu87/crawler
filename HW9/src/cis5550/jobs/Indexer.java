@@ -22,6 +22,7 @@ public class Indexer {
                 String posUrl = url + ":" + String.join(" ", wordPosMap.get(word));
                 System.out.println(word + "\n" + posUrl);
                 pairs.add(new FlamePair(word, posUrl));
+                pairs.add(new FlamePair(stemWord(word), posUrl));
             }
             return pairs;
         }).foldByKey("", (s1, s2) -> s1 + (s1.isEmpty()? "":",") + s2);
@@ -47,5 +48,16 @@ public class Indexer {
             }
         }
         return map;
+    }
+
+    public static String stemWord(String word) {
+        Stemmer s = new Stemmer();
+        for (char ch: word.toCharArray()) {
+            if (Character.isLetter(ch)) {
+                s.add(ch);
+            }
+        }
+        s.stem();
+        return s.toString();
     }
 }
