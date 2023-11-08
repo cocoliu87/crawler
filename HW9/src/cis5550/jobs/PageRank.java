@@ -10,15 +10,21 @@ import cis5550.tools.Hasher;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class PageRank {
     static final String tableName = "pt-crawl", rankTableName = "pt-pageranks", delimiter = ",";
     static final double decayFactor = 0.85;
     public static void run(cis5550.flame.FlameContext ctx, String[] args) throws Exception {
         double convergence = 0.1;
+        int totalProcessed = 0;
+        AtomicInteger converged = new AtomicInteger();
+        double cutoff = -1;
+
         if (args.length > 0) {
             try {
                 convergence = Double.parseDouble(args[0]);
+                if (args.length == 2) cutoff = Double.parseDouble(args[1]);
             } catch (Exception ignored) {
             }
         }
@@ -30,9 +36,7 @@ public class PageRank {
             List<String> links = Crawler.processUrls(Crawler.getAllUrls(page), url);
             List<String> hashedLinks = new ArrayList<>();
             for (String link: links) hashedLinks.add(Hasher.hash(link));
-            FlamePair p = new FlamePair(Hasher.hash(url), "1.0,1.0," + String.join(delimiter, hashedLinks));
-//            System.out.println(p);
-            return p;
+            return new FlamePair(Hasher.hash(url), "1.0,1.0," + String.join(delimiter, hashedLinks));
         });
         while (true) {
             // Compute and aggregate transfer table
@@ -64,15 +68,20 @@ public class PageRank {
                 return pairs;
             });
 
+            totalProcessed++;
+
             // calculate the convergence
+            double finalConvergence = convergence;
             String max = state.flatMap(p -> {
                 String[] values = p._2().split(delimiter);
                 double diff = Math.abs(Double.parseDouble(values[0]) - Double.parseDouble(values[1]));
+                if (diff < finalConvergence) converged.getAndIncrement();
                 return List.of(new String[]{String.valueOf(diff)});
             }).fold("0", (s1, s2) -> Double.parseDouble(s1) >= Double.parseDouble(s2)? s1 : s2);
 
             // if meet the requirement, quit the loop
             if (Double.parseDouble(max) < convergence) break;
+            else if (cutoff >= 0 && (double) (converged.get() / totalProcessed) * 100 >= cutoff) break;
         }
 
 
