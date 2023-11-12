@@ -1,7 +1,4 @@
 #!/usr/bin/env bash
-#
-# UberCarwl Toolkit v0.1
-#  This is a tool kit that helps manage the crawler stack.
 
 #set -o errexit
 HIDE_UBERCRAWL_MSG="FALSE";
@@ -54,6 +51,8 @@ function start() {
       ;;
       "frontend-build")
         docker-compose -f compose.frontend.yaml up -d;
+        echo -e "\nReact build now running on http://localhost:8080  (it might take a minute to boot)";
+        echo -e "To stop: ./uc stop frontend-build";
       ;;
       "coordinator")
         docker-compose -f compose.coordinator.yaml up -d;
