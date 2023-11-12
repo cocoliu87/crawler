@@ -1,0 +1,12 @@
+version: '3.5'
+
+services:
+  frontend-dev:
+    build:
+      context: frontend
+      dockerfile: docker/frontend-dev.dockerfile
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend:/app
+    restart: always
