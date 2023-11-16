@@ -1,340 +1,423 @@
 package cis5550.jobs;
 
-import cis5550.flame.*;
+import java.io.BufferedReader;
+import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.RandomAccessFile;
+import java.net.HttpURLConnection;
+import java.net.URL;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+import java.util.Scanner;
+import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+
+import org.jsoup.Jsoup;
+import org.jsoup.nodes.Document;
+import org.jsoup.nodes.Element;
+import org.jsoup.select.Elements;
+
+import cis5550.flame.FlameContext;
+import cis5550.flame.FlameRDD;
 import cis5550.kvs.KVSClient;
 import cis5550.kvs.Row;
-import cis5550.tools.Helpers;
-import cis5550.tools.HttpCrawlResponse;
-
-import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.util.*;
+import cis5550.tools.Hasher;
+import cis5550.tools.Logger;
+import cis5550.tools.URLParser;
 
 public class Crawler {
-
-    public static FlameRDD urlQueue = null;
-
-    /**
-     * Check whether the latter contains a single element (the seed URL),
-     * and output an error message (using the context’s output method)
-     * if it does not.
-     */
-    public static boolean isValidArgs(FlameContext context, String[] args) {
-        // If we have exactly one, return true
-        if (args.length == 1) return true;
-        // Else, print error message and exit
-        context.output("Invalid number of arguments, must be exactly one: the seed url.");
-        return false;
-    }
-
-    public static void initializeRobotsPolicy(KVSClient kvsClient, String url) throws IOException {
-        // Split url, get robots.txt
-        String robotsUrl = Helpers.mergeLinks(url, "/robots.txt");
-        String robotsHost = Helpers.getHost(robotsUrl);
-
-        // Make http call
-        HttpCrawlResponse httpRobots = Helpers.httpRequest(robotsUrl, "GET");
-
-        String robotsFileContents = "";
-
-        // If there was a robots file
-        if(httpRobots.httpCode == 200) {
-            // Get data
-            robotsFileContents = httpRobots.content;
+    public static String normalize(String s, String base) {
+        if (s.indexOf("#") != -1) {
+            s = s.substring(0, s.indexOf("#"));
         }
-
-        kvsClient.put("hosts", robotsHost, "robotsPolicy", robotsFileContents);
-    }
-
-    public static HashMap<String, String> loadRobotsPolicy(KVSClient kvsClient, String hostItem) throws IOException {
-        String robotsPolicyText = new String(kvsClient.get("hosts", hostItem, "robotsPolicy"), StandardCharsets.UTF_8);;
-        return Helpers.parseRobotsFile(robotsPolicyText);
-    }
-
-    public static HashMap<String, String> loadRulesSet(KVSClient kvsClient, String hostItem) throws IOException {
-        HashMap<String, String> robotsPolicy = loadRobotsPolicy(kvsClient,  hostItem);
-        HashMap<String, String> ruleSet = new HashMap<>();
-        boolean matchedHost = false;
-
-        // Iterating HashMap through for loop
-        for (Map.Entry<String, String> set : robotsPolicy.entrySet()) {
-            // Printing all elements of a Map
-            if(set.getKey().equalsIgnoreCase("user-agent")) {
-                if(set.getValue().equals("*") || set.getValue().equalsIgnoreCase(hostItem)) {
-                    matchedHost = true;
-                } else {
-                    matchedHost = false;
-                }
-            }
-
-            if(matchedHost) {
-                String key = set.getKey();
-                String value = set.getValue();
-
-                // Check if the key is 'allowed' or 'disallowed'
-                if(key.equals("allow") || key.equals("disallow")) {
-                    // If so, set key: route, value: allowed, disallowed
-                    ruleSet.put(value, key.toLowerCase());
-                }
-
-                // Check if we have a 'crawl-delay' key
-                if(key.equals("crawl-delay")) {
-                    // key: crawl-delay, value: number as string
-                    ruleSet.put("crawl-delay", value);
-                }
-            }
+        if (s.endsWith(".jpg") || s.endsWith(".jpeg") || s.endsWith(".gif") || s.endsWith(".png") || s.endsWith(".txt")) {
+            return "";
         }
-        return ruleSet;
-    }
-
-    public static boolean isDisallowed(HashMap<String, String> rulesSet, String url) {
-        // First, parse and get the domain's route path
-        String path = Helpers.getPath(url);
-
-        // Iterating HashMap through for loop
-        for (Map.Entry<String, String> set : rulesSet.entrySet()) {
-            String key = set.getKey().toLowerCase();
-            String value = set.getValue().toLowerCase();
-
-            if(!key.equalsIgnoreCase("crawl-delay")) {
-                // Printing all elements of a Map
-                if(path.toLowerCase().startsWith(key.toLowerCase())) {
-                    // Check if the rule is to disallow
-                    if(value.equals("disallow")) {
-                        return true;
+        if (s.equals("")) {
+            return base;
+        }
+        String[] parse1 = URLParser.parseURL(s);
+        String[] parse2 = URLParser.parseURL(base);
+        String protocal1 = parse1[0];
+        String host1 = parse1[1];
+        String port1 = parse1[2];
+        String detail1 = parse1[3];
+        String protocal2 = parse2[0];
+        String host2 = parse2[1];
+        String port2 = parse2[2];
+        String detail2 = parse2[3];
+        String ret = "";
+        if (s.startsWith("/")) {
+            return protocal2 + "://" + host2 + (protocal2.contains("https") ? ":443" : ":80") + s;
+        }
+        if (protocal1 != null){
+            if (protocal1.equals("http") || protocal1.equals("https")) {
+                ret += protocal1 + ":";
+            } else {
+                return "";
+            }
+        } else if (protocal2 != null) {
+            if (protocal2.equals("http") || protocal2.equals("https")) {
+                ret += protocal2 + ":";
+            } else {
+                System.out.println("something wrong2, base: "+base+", new_uri: "+s);
+                return "";
+            }
+        } else {
+            System.out.println("something wrong3, base: "+base+", new_uri: "+s);
+            return "";
+        }
+        if (host1 != null) {
+            ret += "//" + host1;
+        } else if (host2 != null){
+            ret += "//" + host2;
+        } else {
+            System.out.println("something wrong4, base: "+base+", new_uri: "+s);
+            return "";
+        }
+        if (port1 != null) {
+            ret += ":" + port1;
+        } else {
+            ret += ret.contains("https") ? ":443" : ":80";
+        }
+        if (detail1 == null) {
+            System.out.println("something wrong5, base: "+base+", new_uri: "+s);
+            return base;
+        } else {
+            if (detail1.startsWith("/")) {
+                ret += detail1;
+            } else {
+                String[] tmp = (detail2.substring(0, detail2.lastIndexOf("/")) + "/" + detail1).split("/");
+                LinkedList<String> url_parts = new LinkedList<String>();
+                for (int i=0; i<tmp.length; i++) {
+                    if (tmp[i].equals("")) {
+                        continue;
                     }
-                }
-            }
-        }
-
-        return false;
-    }
-
-    public static int getWait(HashMap<String, String> rulesSet) {
-        try {
-            float floatValue = Float.parseFloat(rulesSet.get("crawl-delay"));
-            if(floatValue < 1 && floatValue > 0) floatValue = 1;
-            return (int)(floatValue * 1000);
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-        return 0;
-    }
-
-    public static boolean performRateLimit(HashMap<String, String> rulesSet) {
-        return rulesSet.containsKey("crawl-delay");
-    }
-
-    public static long lastAccessTimestamp(KVSClient kvsClient, String hostItem) {
-        try {
-            String lastAccessString = new String(kvsClient.get("hosts", hostItem, "lastAccess"), StandardCharsets.UTF_8);;
-            return Long.parseLong(lastAccessString);
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-        return 0;
-    }
-
-    public static void updateLastAccess(KVSClient kvsClient, String hostItem) throws IOException {
-        long currentTime = System.currentTimeMillis();
-
-        kvsClient.put("hosts", hostItem, "lastAccess", Long.toString(currentTime));
-    }
-
-    public static void checkExtra(KVSClient kvsClient, String domainItem) throws IOException {
-        String authority = Helpers.getRootUrl(domainItem);
-        String authorityHash = Helpers.hashUrl(authority);
-
-        if(!kvsClient.existsRow(
-            "pt-crawl",
-            authorityHash
-        )) {
-            Row row = new Row(authorityHash);
-            row.put("responseCode", Integer.toString(200));
-            row.put("contentType", "text/html");
-            row.put("length", Integer.toString(0));
-            row.put("url", authority);
-            kvsClient.putRow("pt-crawl", row);
-        }
-    }
-
-    public static void run(FlameContext context, String[] args) throws Exception {
-        // Exit if there are missing arguments
-        if(!isValidArgs(context, args)) return;
-
-        String seedUrl = args[0];
-        context.output("Seed url: " + seedUrl + "\n");
-
-        /**
-         * Create an initial FlameRDD (perhaps called urlQueue)
-         * by parallelizing the seed URL and then set up a while
-         * loop that runs until urlQueue.count() is zero.
-         */
-
-        List<String> urlList = new ArrayList<>();
-        String normalizedUrl = Helpers.normalizeUrl(seedUrl);
-        urlList.add(normalizedUrl);
-        urlQueue = context.parallelize(urlList);
-        int recordsProcessed = 0;
-
-        // Get KVS Coordinator
-        String kvsCoordinator = context.getKVS().getCoordinator();
-
-        KVSClient kvsClientLocal = new KVSClient(kvsCoordinator);
-        checkExtra(kvsClientLocal, normalizedUrl);
-
-
-        while (urlQueue.count() > 0) {
-            recordsProcessed++;
-            context.output("Current size of urlQueue: " + urlQueue.count() + "\n");
-
-            urlQueue = urlQueue.flatMap( domainItem -> {
-                ArrayList<String> outputList = new ArrayList<>();
-                // Access the coordinator
-                KVSClient kvsClient = new KVSClient(kvsCoordinator);
-                // Generate the domain hash
-                String domainItemHash = Helpers.hashUrl(domainItem);
-
-                // Now we need the domain host, for robots policy
-                String hostItem = Helpers.getHost(domainItem);
-
-                if(Helpers.containsIgnoredExtension(domainItem)) {
-                    return outputList;
-                }
-
-
-                // Add redirect codes
-                ArrayList<Integer> redirectCodes = new ArrayList<>(Arrays.asList(301, 302, 303, 307, 308));
-
-                // Now generate the hash code for this domain
-                Row row = new Row(domainItemHash);
-
-                // Check if there is NOT an entry for robots for this host
-                if(!kvsClient.existsRow(
-                    "hosts",
-                    hostItem
-                )) {
-                    initializeRobotsPolicy(
-                        kvsClient,
-                        domainItem
-                    );
-                }
-
-                // Load the rules set
-                HashMap<String, String> rulesSet = loadRulesSet(kvsClient, hostItem);
-
-                // If this crawl is disallowed
-                if(isDisallowed(rulesSet, domainItem)) {
-                    // Exit this crawl
-                    return outputList;
-                }
-
-
-                if(performRateLimit(rulesSet)) {
-                    int waitInterval = getWait(rulesSet); // Gets milliseconds
-                    long lastAccessed = lastAccessTimestamp(kvsClient, hostItem);
-                    long currentTime = System.currentTimeMillis();
-                    // There is no update
-                    if(lastAccessed > 0) {
-                        // There is a rule, we must check
-                        if ((currentTime - lastAccessed) < waitInterval) {
-                            // Add it back to the queue, and wait for next iteration
-                            outputList.add(hostItem);
-                            return outputList;
+                    if (!tmp[i].equals("..")) {
+                        url_parts.add(tmp[i]);
+                    } else {
+                        if (url_parts.size() == 0) {
+                            return "";
                         }
+                        url_parts.removeLast();
                     }
                 }
+                ret += "/" + String.join("/", url_parts);
+            }
+        }
+        return ret;
+    }
+    public static List<String> find_url(String content) {
+        String regex = "<[aA](.*?)>";
+        //Creating a pattern object
+        Pattern pattern = Pattern.compile(regex);
+        //Matching the compiled pattern in the String
+        Matcher matcher = pattern.matcher(content);
+        LinkedList<String> ret = new LinkedList<String>();
+        while (matcher.find()) {
+            String possible_groups = matcher.group(1);
+            for (String group: possible_groups.split(" ")) {
+                String[] group_list = group.replaceAll(" ", "").split("=");
+                if (group_list.length == 2 && group_list[0].equals("href")) {
+                    ret.add(group_list[1].replaceAll("'", "").replaceAll("\"", ""));
+                }
+            }
+        }
+        return ret;
+    }
 
-                updateLastAccess(kvsClient, hostItem);
+    private static final Logger logger = Logger.getLogger(Crawler.class);
+    public static void run(FlameContext ctx, String[] arr) {
 
-                // Check if domainItem has already been crawled
-                if (
-                    kvsClient.existsRow(
-                        "pt-crawl",
-                        domainItemHash
-                    )
-                ) {
-                    return outputList;
-                } else {
-                    /**
-                     * HEAD
-                     */
-                    HttpCrawlResponse htmlRespHead = Helpers.httpRequest(domainItem, "HEAD");
-//                    System.out.println("HEAD: " + domainItem + ", response: " + htmlRespHead);
+        String kvs_master = ctx.getKVS().getCoordinator();
+        ctx.setConcurrencyLevel(10);
 
-                    // Check if this is a redirect
-                    if(htmlRespHead.httpCode != 200) {
+        List<String> seed = new LinkedList<String>();
 
-                        // Check if it is a redirect
-                        if(redirectCodes.contains(htmlRespHead.httpCode)) {
-                            String redirectLocation = Helpers.mergeLinks(
-                                domainItem,
-                                Helpers.extractHeader(htmlRespHead.headers, "Location")
-                            );
-                            // Add the new url for redirection
-                            outputList.add(redirectLocation);
+        if (arr.length >= 1 && arr[0].equals("seed")) {
+            for (int i=1; i<arr.length; i++) {
+                seed.add(normalize(arr[i], ""));
+            }
+        }
+        else {
+            try {
+                Iterator<Row> iter = ctx.getKVS().scan("frontier");
+                while (iter.hasNext()) {
+                    seed.add(iter.next().get("url"));
+                }
+            } catch (FileNotFoundException e) {
+                e.printStackTrace();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
 
+//			try {
+//			    File myObj = new File("frontier.txt");
+//			    Scanner myReader = new Scanner(myObj);
+//		        while (myReader.hasNextLine()) {
+//			        String data = myReader.nextLine();
+//			        seed.add(data);
+////			        System.out.println(data);
+//			    }
+//			    myReader.close();
+//		    } catch (FileNotFoundException e) {
+//		    	System.out.println("An error occurred.");
+//			    e.printStackTrace();
+//			}
+//		logger.info("seed: " + seed.toString());
+        ctx.output("OK?");
+
+        FlameRDD urlQueue = null;
+//		System.out.println(seed);
+        try {
+            urlQueue = ctx.parallelize(seed);
+        } catch (Exception e1) {
+            // TODO Auto-generated catch block
+            e1.printStackTrace();
+        }
+        try {
+            int count = 0;
+            while (count < 100 && urlQueue.count() != 0) {
+                System.out.println(count+"-----------------------------------");
+                count += 1;
+
+                urlQueue = urlQueue.flatMap(u-> {
+//	    			logger.info(u);
+                    Set<String> new_url_list = new HashSet<String>();
+                    try {
+//	    				KVSClient kvs_url = new KVSClient(kvs_master_url);
+//	    				RandomAccessFile crawled_url =  new RandomAccessFile("crawled_url", "rw");
+                        KVSClient kvs = new KVSClient(kvs_master);
+                        String hashKey = Hasher.hash(u);
+
+                        if (kvs.existsRow("pt-crawled-url", hashKey)) {
+                            return new_url_list;
                         }
 
-                        // Add to visited list for HEAD
-                        row.put("responseCode", Integer.toString(htmlRespHead.httpCode));
-                        row.put("contentType", Helpers.extractHeader(htmlRespHead.headers, "Content-Type"));
-                        row.put("length", Helpers.extractHeader(htmlRespHead.headers, "Content-Length"));
-                        row.put("url", domainItem);
+                        kvs.put("pt-crawled-url", hashKey, "url", u);
 
-                        kvsClient.putRow("pt-crawl", row);
-                        return outputList;
-                    }
-                    // HEAD RESPONDED WITH 200
-                    else {
-                        /**
-                         * GET
-                         * - If the response to the HEAD was a 200 and the content type
-                         * was text/html, there should also be a page column that contains
-                         * the body of the GET response exactly as it was returned by the
-                         * server (same sequence of bytes).
-                         */
-
-
-                        HttpCrawlResponse htmlRespGet = Helpers.httpRequest(domainItem, "GET");
-//                        System.out.println("GET: " + domainItem + ", response: " + htmlRespHead);
-
-                        String contentType = Helpers.extractHeader(htmlRespGet.headers, "Content-Type");
-                        String contentLength = Helpers.extractHeader(htmlRespGet.headers, "Content-Length");
-
-                        boolean isPage = htmlRespHead.httpCode == 200 && Objects.equals(contentType, "text/html");
-
-                        // This is a regular GET extraction
-                        if(htmlRespHead.httpCode == 200) {
-                            String[] extractedLinks = Helpers.extractLinks(
-                                htmlRespGet.content,
-                                domainItem
-                            );
-
-                            for(String link : extractedLinks) {
-                                outputList.add(link);
+                        String[] parsed_url = URLParser.parseURL(u);
+                        Row host_row = kvs.getRow("hosts", parsed_url[1]);
+                        if (host_row != null) {
+                            String robots_txt = host_row.get("robots_txt");
+                            if (robots_txt == null) {
+                                robots_txt = "";
+                            }
+                            boolean flag = false;
+                            long time_interval = 10;
+                            for (String line: robots_txt.split("\n")) {
+                                String[] split = line.replace(" ","").toLowerCase().split(":");
+                                if (split.length != 2) {
+                                    continue;
+                                }
+                                if (split[0].equals("user-agent")) {
+                                    if (split[1].equals("cis5550-crawler") || split[1].equals("*")) {
+                                        flag = true;
+                                    } else {
+                                        flag = false;
+                                    }
+                                }
+                                else if (flag) {
+                                    if (split[0].equals("allow")) {
+                                        if (parsed_url[3].startsWith(split[1])) {
+//				    						System.out.println("allow");
+                                            break;
+                                        }
+                                    }
+                                    if (split[0].equals("disallow")) {
+                                        if (parsed_url[3].startsWith(split[1])) {
+//				    						System.out.println("disallow");
+                                            return new_url_list;
+                                        }
+                                    }
+                                    if (split[0].equals("crawl-delay")) {
+                                        time_interval = (long) Double.parseDouble(split[1])*1000;
+//				    					System.out.println("delay");
+                                    }
+                                }
+                            }
+                            if (System.currentTimeMillis() - Long.parseLong(new String(host_row.get("last_accessed_time"))) < time_interval) {
+                                new_url_list.add(u);
+                                return new_url_list;
+                            }
+                        } else {
+                            host_row = new Row(parsed_url[1]);
+                            HttpURLConnection robot_con = (HttpURLConnection)(new URL(parsed_url[0]+"://"+parsed_url[1]+":"+parsed_url[2]+"/robots.txt")).openConnection();
+                            robot_con.setConnectTimeout(5000);
+                            robot_con.setReadTimeout(5000);
+                            robot_con.setRequestMethod("GET");
+                            robot_con.setDoOutput(true);
+//				    		robot_con.setRequestProperty("Content-Type", "application/jar-archive");
+                            robot_con.setRequestProperty("User-Agent", "cis5550-crawler");
+                            robot_con.setInstanceFollowRedirects(false);
+                            robot_con.connect();
+                            if (robot_con.getResponseCode() == 200) {
+                                BufferedReader robot_r = new BufferedReader(new InputStreamReader(robot_con.getInputStream()));
+                                String robots_txt = "";
+                                while (true) {
+                                    String l = robot_r.readLine();
+                                    if (l == null)
+                                        break;
+                                    robots_txt = robots_txt + "\n" + l;
+                                }
+//					    		System.out.println(robot_txt);
+//					    		System.out.println(robot_con.getResponseCode());
+//	    						kvs.put("hosts", parsed_url[1], "robots_txt", robots_txt);
+                                host_row.put("robots_txt", robots_txt);
+                            }
+                        }
+                        host_row.put("last_accessed_time", String.valueOf(System.currentTimeMillis()));
+                        kvs.putRow("hosts", host_row);
+                        HttpURLConnection con = (HttpURLConnection)(new URL(u)).openConnection();
+                        con.setReadTimeout(5000);
+                        con.setConnectTimeout(5000);
+                        con.setRequestMethod("HEAD");
+                        con.setDoOutput(true);
+//					    con.setRequestProperty("Content-Type", "application/jar-archive");
+                        con.setInstanceFollowRedirects(false);
+                        con.setRequestProperty("User-Agent", "cis5550-crawler");
+                        con.connect();
+                        Row row = new Row(hashKey);
+//	    				Row row = new Row(String.valueOf(u.hashCode()));
+                        row.put("url", u);
+                        int code = con.getResponseCode();
+                        row.put("responseCode", String.valueOf(code));
+                        Map<String, List<String>> header = con.getHeaderFields();
+                        Map<String, String> lower_header = new HashMap<String, String>();
+                        for (String key: header.keySet()) {
+                            if (key != null && header.get(key).size() > 0) {
+                                lower_header.put(key.toLowerCase(), header.get(key).get(0));
                             }
                         }
 
-                        // Add to visited list for GET
-                        row.put("responseCode", Integer.toString(htmlRespGet.httpCode));
-                        row.put("contentType", contentType);
-                        row.put("length", contentLength);
-                        row.put("url", domainItem);
-
-                        if(isPage) {
-                            row.put("page", htmlRespGet.data);
+//					    System.out.println(header);
+                        if (lower_header.containsKey("content-encoding") && lower_header.get("content-encoding").equals("gzip")) {
+                            return new_url_list;
                         }
-                        kvsClient.putRow("pt-crawl", row);
+                        if (lower_header.containsKey("content-language") && !lower_header.get("content-language").startsWith("en")) {
+                            return new_url_list;
+                        }
+                        if (lower_header.containsKey("content-type")) {
+                            row.put("contentType", lower_header.get("content-type").toString());
+                        }
+                        if (lower_header.containsKey("content-length")) {
+//					    	row.put("length", lower_header.get("content-length").toString());
+                            row.put("length", con.getHeaderField("Content-Length"));
+                        }
+                        HashSet<Integer> s = new HashSet<Integer>(Arrays.asList(301, 302, 303, 307, 308));
+                        if (code == 200) {
+                            HttpURLConnection con1 = (HttpURLConnection)(new URL(u)).openConnection();
+                            con1.setConnectTimeout(5000);
+                            con1.setReadTimeout(5000);
+                            con1.setRequestMethod("GET");
+                            con1.setDoOutput(true);
+                            con1.setRequestProperty("User-Agent", "cis5550-crawler");
+                            con1.setInstanceFollowRedirects(false);
+                            con1.connect();
+                            InputStream in = con1.getInputStream();
+                            ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+
+                            int b;
+                            while ((b = in.read()) != -1) {
+                                buffer.write(b);
+                            }
+                            String result = new String(buffer.toByteArray());
+                            for (String line: result.split("\n")) {
+                                List<String> new_raw_urls = find_url(line);
+                                for (String new_raw_url: new_raw_urls) {
+                                    String new_url = normalize(new_raw_url, u);
+                                    if (!new_raw_url.equals("") && !new_url.equals("") && !new_url.equals(u) && (new_url.contains("wiki") || new_url.contains("bbc") || new_url.contains("simple.crawltest.cis5550"))) {
+                                        new_url_list.add(new_url);
+                                    }
+                                }
+                            }
+                            row.put("responseCode", String.valueOf(con1.getResponseCode()));
+
+                            if (row.get("contentType") != null && row.get("contentType").contains("text/html")) {
+                                row.put("page", result);
+                                if (lower_header.containsKey("content-language") && !lower_header.get("content-language").startsWith("en")) {
+//	    							logger.info("language check: " + u+" "+ lower_header.get("content-language"));
+                                } else {
+                                    if (!lower_header.containsKey("content-language")) {
+//	    								logger.info("check2: "+u+" "+Jsoup.parse(result).head().text());
+                                    }
+                                    Row r2 = new Row(row.key());
+                                    Document doc = Jsoup.parse(result);
+                                    String head_txt = doc.head().text();
+                                    String body_txt = doc.body().text();
+                                    r2.put("head", head_txt);
+                                    if (!r2.get("head").matches("[a-zA-Z0-9~!@#$%^&*()_–+-=|\\[\\]\\{\\};':\",.<>\\/\\?\\s]+")) {
+//	    								logger.info("match: "+r2.get("head")+" "+u);
+                                        return new_url_list;
+                                    }
+//	    							System.out.println("yeah: "+r2.get("head"));
+                                    Element desc = doc.head().selectFirst("meta[name$=description]");
+                                    if (desc != null && desc.attr("content") != null) {
+                                        r2.put("description", desc.attr("content"));
+                                    } else {
+                                        // if body_txt doesn't have length more than 100,
+                                        // view it as ineffective document, and will catch Exception
+                                        r2.put("description", body_txt.substring(0, 100));
+                                    }
+                                    String children_urls = String.join(" ", new_url_list);
+                                    r2.put("url", u);
+                                    r2.put("text", body_txt);
+                                    r2.put("children_urls", children_urls);
+                                    kvs.putRow("pt-plain-text", r2);
+                                    kvs.put("pt-url", row.key(), "url", u);
+                                }
+                            }
+                        } else if (s.contains(code)){
+//	    					System.out.println(u+" "+u.hashCode()+" "+ code);
+//	    					System.out.println(lower_header.get("location"));
+                            if (!lower_header.get("location").equals(u)) {
+                                new_url_list.add(normalize(lower_header.get("location"), u));
+                            }
+                        }
+//	    				kvs.putRow("crawl", row);
+                    } catch (Exception e) {
+                        logger.error("Error in flatmap: " + u +" "+e.toString());
+                    }
+//	    			System.out.println(u);
+//	    			System.out.println(new_url_list.toString());
+//	    			logger.info(String.valueOf(u));
+//	    			logger.info(new_url_list.toString());
+                    return new_url_list;
+                });
+//	    		Thread.sleep(1000);
+//	    		System.out.println("one iteration: " + urlQueue.collect().toString());
+//	    		logger.info("one iteration "+count+": " + urlQueue.collect().toString());
+                HashSet<String> urlQueueSet = new HashSet<String>(urlQueue.collect());
+                List<String> new_seed = new LinkedList<String>();
+//	    		System.out.println(urlQueueSet);
+                ctx.getKVS().delete("frontier");
+
+                for (String u: urlQueueSet) {
+                    String hashed_u = Hasher.hash(u);
+                    if (!ctx.getKVS().existsRow("pt-crawled-url", hashed_u)) {
+                        new_seed.add(u);
+                        ctx.getKVS().put("frontier", hashed_u, "url", u);
                     }
                 }
-
-                return outputList;
-            });
-            Thread.sleep(1000);
+                urlQueue = ctx.parallelize(new_seed);
+                System.gc();
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
         }
-
-        // Print all processed records
-        context.output("Total records processed: " + recordsProcessed + "\n");
     }
+
 }
