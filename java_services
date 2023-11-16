@@ -1,0 +1,89 @@
+#!/usr/bin/env bash
+
+set -o errexit;
+
+JAVA_COMMAND="java -cp ubercrawl/lib/kvs.jar:ubercrawl/lib/webserver.jar:ubercrawl/lib/flame.jar:ubercrawl.jar";
+
+function __clear_garbage() {
+    echo "Clearing garbage...";
+    #rm -rf "worker1/pt-crawl"
+    #rm *.jar || echo "OK";
+    echo "Done clearing, starting services now...";
+}
+
+function __ubercrawl_start_kvs() {
+    echo "Starting cis5550.kvs.Coordinator";
+    $JAVA_COMMAND cis5550.kvs.Coordinator 8000&
+    sleep 1;
+    echo "Starting: cis5550.kvs.Worker";
+    $JAVA_COMMAND cis5550.kvs.Worker 8001 worker1 localhost:8000 &
+    sleep 1;
+}
+
+function __ubercrawl_start_flame() {
+    echo "Starting: cis5550.flame.Coordinator";
+    $JAVA_COMMAND cis5550.flame.Coordinator 9000 localhost:8000 &
+    sleep 1;
+    echo "Starting: cis5550.flame.Worker (1)";
+    $JAVA_COMMAND cis5550.flame.Worker 9001 localhost:9000 &
+    sleep 1;
+    echo "Starting: cis5550.flame.Worker (2)";
+    $JAVA_COMMAND cis5550.flame.Worker 9002 localhost:9000 &
+    sleep 1;
+}
+
+
+
+function __ubercrawl_stop() {
+    echo "Stopping Services";
+
+    # KVS Coordinator
+    for KVS_PID in $(ps -ax | grep webserver | grep -v grep | awk '{print $1}');
+    do
+        echo "Stopping process id $KVS_PID";
+        kill -9 $KVS_PID;
+    done;
+}
+
+
+function __ubercrawl_restart() {
+    __ubercrawl_stop;
+    __ubercrawl_start_kvs;
+    __ubercrawl_start_flame;
+}
+
+
+
+#
+# Shortcuts
+#
+function start() {
+    __ubercrawl_start_kvs;
+    __ubercrawl_start_flame;
+}
+
+function stop() {
+    __ubercrawl_stop;
+}
+
+function restart() {
+    __ubercrawl_restart;
+}
+
+function runIndexer() {
+  $JAVA_COMMAND \
+      cis5550.flame.FlameSubmit \
+      localhost:9000 \
+      ubercrawl/jobs/Indexer/Indexer.jar \
+      cis5550.jobs.Indexer;
+}
+
+function runPageRank() {
+  $JAVA_COMMAND \
+      cis5550.flame.FlameSubmit \
+      localhost:9000 \
+      ubercrawl/jobs/PageRank/PageRank.jar \
+      cis5550.jobs.PageRank;
+}
+
+echo "UberCrawl Java Services: $@" && $@;
