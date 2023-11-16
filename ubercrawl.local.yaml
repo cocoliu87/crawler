@@ -1,0 +1,89 @@
+version: '3.5'
+
+services:
+  kvs_coordinator:
+    image: ubercrawl_base:main
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data/coordinator:/app
+    restart: no
+    command: [ "java", "-cp", "/java/lib/*", "cis5550.kvs.Coordinator", "8000"]
+
+  kvs_worker_a:
+    image: ubercrawl_base:main
+    ports:
+      - "8001:8001"
+    volumes:
+      - ./data/worker1:/app/worker1
+    restart: always
+    command: [ "java", "-cp", "/java/lib/*", "cis5550.kvs.Worker", "8001", "worker1", "kvs_coordinator:8000"]
+    depends_on:
+    - kvs_coordinator
+
+  kvs_worker_b:
+    image: ubercrawl_base:main
+    ports:
+      - "8002:8002"
+    volumes:
+      - ./data/worker2:/app/worker2
+    restart: always
+    command: [ "java", "-cp", "/java/lib/*", "cis5550.kvs.Worker", "8002", "worker2", "kvs_coordinator:8000"]
+    depends_on:
+      - kvs_coordinator
+
+  flame_coordinator:
+    image: ubercrawl_base:main
+    ports:
+      - "9000:9000"
+    volumes:
+      - ./data/flame_coordinator:/app/
+    restart: always
+    command: [ "java", "-cp", "/java/lib/*", "cis5550.flame.Coordinator", "9000", "kvs_coordinator:8000" ]
+    depends_on:
+      - kvs_coordinator
+
+  flame_worker_a:
+    image: ubercrawl_base:main
+    ports:
+      - "9001:9001"
+    restart: always
+    command: [ "java", "-cp", "/java/lib/*", "cis5550.flame.Worker", "9001", "flame_coordinator:9000" ]
+    depends_on:
+      - flame_coordinator
+
+  flame_worker_b:
+    image: ubercrawl_base:main
+    ports:
+      - "9002:9002"
+    restart: always
+    command: [ "java", "-cp", "/java/lib/*", "cis5550.flame.Worker", "9002", "flame_coordinator:9000" ]
+    depends_on:
+      - flame_coordinator
+
+  flame_worker_c:
+    image: ubercrawl_base:main
+    ports:
+      - "9003:9003"
+    restart: always
+    command: [ "java", "-cp", "/java/lib/*", "cis5550.flame.Worker", "9003", "flame_coordinator:9000" ]
+    depends_on:
+      - flame_coordinator
+
+  flame_worker_d:
+    image: ubercrawl_base:main
+    ports:
+      - "9004:9004"
+    restart: always
+    command: [ "java", "-cp", "/java/lib/*", "cis5550.flame.Worker", "9004", "flame_coordinator:9000" ]
+    depends_on:
+      - flame_coordinator
+
+  flame_worker_e:
+    image: ubercrawl_base:main
+    ports:
+      - "9005:9005"
+    restart: always
+    command: [ "java", "-cp", "/java/lib/*", "cis5550.flame.Worker", "9004", "flame_coordinator:9000" ]
+    depends_on:
+      - flame_coordinator
