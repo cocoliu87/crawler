@@ -7,5 +7,5 @@ services:
       - "8001:8001"
     volumes:
       - ./data/worker:/app/worker
-    restart: always
+    restart: unless-stopped
     command: [ "java", "-cp", "/java/lib/*", "cis5550.kvs.Worker", "8001", "worker", "${KVS_SERVER_HOST}:${KVS_SERVER_PORT}"]
