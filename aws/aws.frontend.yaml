@@ -1,0 +1,60 @@
+version: '3.4'
+
+services:
+  ubercrawl-proxy-nginx:
+    image: 'jc21/nginx-proxy-manager:latest'
+    restart: unless-stopped
+    ports:
+      # These ports are in format <host-port>:<container-port>
+      - '80:80' # Public HTTP Port
+      - '443:443' # Public HTTPS Port
+      - '81:81' # Admin Web Port
+    environment:
+      # Mysql/Maria connection parameters:
+      DB_MYSQL_HOST: "ubercrawl-proxy-db"
+      DB_MYSQL_PORT: 3306
+      DB_MYSQL_USER: "npm"
+      DB_MYSQL_PASSWORD: "npm"
+      DB_MYSQL_NAME: "npm"
+      # Uncomment this if IPv6 is not enabled on your host
+      # DISABLE_IPV6: 'true'
+    volumes:
+      - ./data/proxy-aws/data:/data
+      - ./data/proxy-aws/letsencrypt:/etc/letsencrypt
+    depends_on:
+      - ubercrawl-proxy-db
+
+  ubercrawl-proxy-db:
+    image: 'jc21/mariadb-aria:latest'
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: 'npm'
+      MYSQL_DATABASE: 'npm'
+      MYSQL_USER: 'npm'
+      MYSQL_PASSWORD: 'npm'
+    volumes:
+      - ./data/proxy-aws/mysql:/var/lib/mysql
+
+  #
+  # UberCrawl: API (currently the coordinator, acts as an api to test ports)
+  #
+  ubercrawl-api:
+    image: ubercrawl_base:main
+    ports:
+      - "8081:8081"
+    volumes:
+      - ./data/coordinator:/app
+    restart: no
+    command: [ "java", "-cp", "/java/lib/*", "cis5550.kvs.Coordinator", "8081" ]
+
+
+  #
+  # UberCrawl: Front End
+  #
+  ubercrawl-frontend:
+    image: sergiogcx/ubercrawl_frontend:main
+    ports:
+      - "8080:8080"
+    restart: always
+    depends_on:
+      - ubercrawl-api
