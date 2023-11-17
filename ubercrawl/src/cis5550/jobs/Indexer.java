@@ -1,107 +1,82 @@
-package cis5550.jobs;
+import cis5550.flame.FlameContext;
+import cis5550.kvs.KVSClient;
+import cis5550.kvs.Row;
 
-import cis5550.flame.*;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashSet;
+import java.util.Iterator;
 
 public class Indexer {
+	public static void run(FlameContext ctx, String[] args) throws Exception {
+		KVSClient kvs = ctx.getKVS();
 
-    /**
-     * As a first step, create the class for the indexer, and, in its run method.
-     * @param context
-     * @param args
-     * @throws Exception
-     */
-    public static void run(FlameContext context, String[] args) throws Exception {
+		// Iterate through workers and fetch data for each row individually
+		for (int i = 0; i < kvs.numWorkers(); i++) {
+			String workerAddress = kvs.getWorkerAddress(i);
 
-        /**
-         * Load the data from the pt-crawl table. Ideally, we would like a PairRDD of (u, p) pairs,
-         * where u is a normalized URL and p is the contents of the corresponding page,
-         * but we only have a fromTable for normal RDDs.
-         */
+			// Fetch rows from pt-crawl table for the current worker
+			String tableName = "pt-crawl";
+			Iterator<Row> rowIterator = fetchRowsFromWorker(kvs, tableName, workerAddress);
 
+			// Process rows and perform indexing
+			while (rowIterator.hasNext()) {
+				Row row = rowIterator.next();
+				String url = row.get("url");
+				String page = row.get("page");
 
-        /**
-         * First, use fromTable and map each Row of the pt-crawl table to a string u,p,
-         * where u is the URL and p the page, and then use mapToPair to convert this
-         * into a PairRDD again.
-         */
+				// Normalize the page content
+				page = page.replaceAll("<.*?>", "").replaceAll("[.,:;!?’\"()-]", "").toLowerCase();
+				HashSet<String> uniqueWords = new HashSet<>(Arrays.asList(page.split("\\s+")));
 
-        FlamePairRDD flamePairRDD = context.fromTable(
-                "pt-crawl",
-                // we would like a PairRDD of (u, p) pairs,
-                row -> {
-                    return
-                        row.get("url") +  // where u is the URL
-                        "," +
-                        row.get("page");  // and p the page
-                }
-        )
-        // And then use mapToPair
-        .mapToPair(pairString -> {
-            int dividerIndex = pairString.indexOf(",");
-            String url = pairString.substring(0, dividerIndex);
-            String page = pairString.substring(dividerIndex + 1);
-            // Convert this into a PairRDD again.
-            FlamePair flamePair = new FlamePair(url, page);
-            return flamePair;
-        });
+				// Insert (word, url) pairs into pt-index
+				for (String word : uniqueWords) {
+					// Normalize the word and remove whitespace
+					word = word.replaceAll(" ", "");
 
+					// Skip short words
+					if (word.length() <= 2) continue;
 
-        /**
-         * Next, create the inverted index. This involves two simple steps.
-         * First, we need to convert each (u, p) pair to lots of (w, u) pairs,
-         * where w is a word that occurs in p. You can use flatMapToPair for this.
-         */
-        flamePairRDD.flatMapToPair(kvPair -> {
-            // First, we create a set of FlamePairs, which is our output
-            // A hashmap would be faster, but
-            HashSet<FlamePair> wordUrlPairs = new HashSet<>();
-            // Gather the url, and the page
-            String url = kvPair._1().trim(); // Key: url
-            String page = kvPair._2().trim(); // Value: page contents
+					// Fetch the current index value for the word
+					byte[] currentValueBytes = kvs.get("pt-index", word, "url");
+					String currentValue = currentValueBytes == null ? "" : new String(currentValueBytes, StandardCharsets.UTF_8);
 
-            /**
-             * Make sure to filter out all HTML tags, to remove all punctuation,
-             * and to convert everything to lower case.
-             */
-            // Filter out all html tags
-            page = page.replaceAll("<[^>]*>", "");
-            // Remove all punctuation
-            page = page.replaceAll("\\p{Punct}", ""); // !”#$%&'()*+,-./:;<=>?@[\]^_`{|}~:
-            // convert everything to lower case
-            page = page.toLowerCase();
+					// Append the new URL to the existing value if it's not already included
+					String newValue = currentValue.contains(url) ? currentValue : currentValue + (currentValue.isEmpty() ? "" : ",") + url;
+					kvs.put("pt-index", word, "url", newValue.getBytes(StandardCharsets.UTF_8));
+				}
+			}
+		}
 
-            /**
-             * The resulting PairRDD will still contain lots of (w, ui) pairs,
-             * with the same word w but different URLs ui.
-             */
-            // Break the page contents into words
-            Arrays.stream(page.split("\\s+")).forEach(word -> {
-                // For each word, crate a unique pair. Uniqueness guaranteed by HashSet.
-                wordUrlPairs.add(
-                    new FlamePair(word, url)
-                );
-            });
-            // Output the unique set for folding
-            return wordUrlPairs;
-        })
-        /**
-         * We’ll need to fold all the URLs into a single
-         * comma-separated list, using foldByKey.
-         */
-        .foldByKey(
-            "",
-            (a, b) ->
-                // Lastly we just have to join with a comma
-                a.isEmpty()
-                    ? a + b // If empty, we just put them together
-                    : a + "," + b // If not, then separate
-        )
-        /**
-         * This should produce the required data; you can rename the final PairRDD
-         * to pt-index using the saveAsTable method.
-         */
-        .saveAsTable("pt-index");
-    }
+		// After saving the pt-index table, fetch and print its content
+		printIndexTableContent(kvs);
+	}
+
+	private static Iterator<Row> fetchRowsFromWorker(KVSClient kvs, String tableName, String workerAddress) {
+		try {
+			// Modified to pass the workerAddress if necessary
+			return kvs.scan(tableName, workerAddress, null);
+		} catch (IOException e) {
+			// Handle the exception (e.g., log the error)
+			e.printStackTrace();
+			return Collections.emptyIterator();
+		}
+	}
+
+	private static void printIndexTableContent(KVSClient kvs) {
+		try {
+			Iterator<Row> indexTableIterator = kvs.scan("pt-index", null, null);
+			System.out.println("Content of pt-index table:");
+			while (indexTableIterator.hasNext()) {
+				Row indexRow = indexTableIterator.next();
+				String key = indexRow.key();
+				String value = indexRow.columns().iterator().next(); // Assuming there's only one column per row
+				System.out.println(key + " => " + value);
+			}
+		} catch (IOException e) {
+			e.printStackTrace();
+		}
+	}
 }
