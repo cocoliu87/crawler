@@ -39,7 +39,7 @@ services:
   # UberCrawl: API (currently the coordinator, acts as an api to test ports)
   #
   ubercrawl-api:
-    image: ubercrawl_base:main
+    image: sergiogcx/ubercrawl_base:main
     ports:
       - "8081:8081"
     volumes:
