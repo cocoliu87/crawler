@@ -2,7 +2,7 @@ version: '3.4'
 
 services:
   kvs_coordinator:
-    image: ubercrawl_base:main
+    image: sergiogcx/ubercrawl_base:main
     ports:
       - "8000:8000"
     volumes:
