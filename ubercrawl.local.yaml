@@ -1,6 +1,58 @@
-version: '3.5'
-
+version: '3.4'
 services:
+  #
+  # Proxy
+  #
+  ubercrawl-proxy-nginx:
+    image: 'jc21/nginx-proxy-manager:latest'
+    restart: unless-stopped
+    ports:
+      # These ports are in format <host-port>:<container-port>
+      - '80:80' # Public HTTP Port
+      - '443:443' # Public HTTPS Port
+      - '81:81' # Admin Web Port
+      # Add any other Stream port you want to expose
+      # - '8000:8000' # KVS Coordinator
+      # - '9000:9000' # Flame Coordinator
+    environment:
+      # Mysql/Maria connection parameters:
+      DB_MYSQL_HOST: "ubercrawl-proxy-db"
+      DB_MYSQL_PORT: 3306
+      DB_MYSQL_USER: "npm"
+      DB_MYSQL_PASSWORD: "npm"
+      DB_MYSQL_NAME: "npm"
+      # Uncomment this if IPv6 is not enabled on your host
+      # DISABLE_IPV6: 'true'
+    volumes:
+      - ./data/proxy/data:/data
+      - ./data/proxy/letsencrypt:/etc/letsencrypt
+    depends_on:
+      - ubercrawl-proxy-db
+  ubercrawl-proxy-db:
+    image: 'jc21/mariadb-aria:latest'
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: 'npm'
+      MYSQL_DATABASE: 'npm'
+      MYSQL_USER: 'npm'
+      MYSQL_PASSWORD: 'npm'
+    volumes:
+      - ./data/proxy/mysql:/var/lib/mysql
+
+  #
+  # UberCrawl: Front-End
+  #
+  ubercrawl-frontend:
+    build:
+      context: frontend
+      dockerfile: docker/frontend-build.dockerfile
+    ports:
+      - "8080:8080"
+    restart: always
+
+  #
+  # UberCrawl: KVS & KVS Workers
+  #
   kvs_coordinator:
     image: ubercrawl_base:main
     ports:
@@ -9,29 +61,20 @@ services:
       - ./data/coordinator:/app
     restart: no
     command: [ "java", "-cp", "/java/lib/*", "cis5550.kvs.Coordinator", "8000"]
-
-  kvs_worker_a:
+  kvs_workers:
     image: ubercrawl_base:main
-    ports:
-      - "8001:8001"
-    volumes:
-      - ./data/worker1:/app/worker1
+    deploy:
+      replicas: 5
+    expose:
+      - 8001
     restart: always
-    command: [ "java", "-cp", "/java/lib/*", "cis5550.kvs.Worker", "8001", "worker1", "kvs_coordinator:8000"]
+    command: [ "java", "-cp", "/java/lib/*", "cis5550.kvs.Worker", "8001", "worker", "kvs_coordinator:8000"]
     depends_on:
     - kvs_coordinator
 
-  kvs_worker_b:
-    image: ubercrawl_base:main
-    ports:
-      - "8002:8002"
-    volumes:
-      - ./data/worker2:/app/worker2
-    restart: always
-    command: [ "java", "-cp", "/java/lib/*", "cis5550.kvs.Worker", "8002", "worker2", "kvs_coordinator:8000"]
-    depends_on:
-      - kvs_coordinator
-
+  #
+  # UberCrawl: Flame & Flame Workers
+  #
   flame_coordinator:
     image: ubercrawl_base:main
     ports:
@@ -42,48 +85,13 @@ services:
     command: [ "java", "-cp", "/java/lib/*", "cis5550.flame.Coordinator", "9000", "kvs_coordinator:8000" ]
     depends_on:
       - kvs_coordinator
-
-  flame_worker_a:
+  flame_workers:
     image: ubercrawl_base:main
-    ports:
-      - "9001:9001"
+    deploy:
+      replicas: 5
+    expose:
+      - 9001
     restart: always
     command: [ "java", "-cp", "/java/lib/*", "cis5550.flame.Worker", "9001", "flame_coordinator:9000" ]
-    depends_on:
-      - flame_coordinator
-
-  flame_worker_b:
-    image: ubercrawl_base:main
-    ports:
-      - "9002:9002"
-    restart: always
-    command: [ "java", "-cp", "/java/lib/*", "cis5550.flame.Worker", "9002", "flame_coordinator:9000" ]
-    depends_on:
-      - flame_coordinator
-
-  flame_worker_c:
-    image: ubercrawl_base:main
-    ports:
-      - "9003:9003"
-    restart: always
-    command: [ "java", "-cp", "/java/lib/*", "cis5550.flame.Worker", "9003", "flame_coordinator:9000" ]
-    depends_on:
-      - flame_coordinator
-
-  flame_worker_d:
-    image: ubercrawl_base:main
-    ports:
-      - "9004:9004"
-    restart: always
-    command: [ "java", "-cp", "/java/lib/*", "cis5550.flame.Worker", "9004", "flame_coordinator:9000" ]
-    depends_on:
-      - flame_coordinator
-
-  flame_worker_e:
-    image: ubercrawl_base:main
-    ports:
-      - "9005:9005"
-    restart: always
-    command: [ "java", "-cp", "/java/lib/*", "cis5550.flame.Worker", "9004", "flame_coordinator:9000" ]
     depends_on:
       - flame_coordinator
