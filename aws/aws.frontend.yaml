@@ -44,7 +44,7 @@ services:
       - "8081:8081"
     volumes:
       - ./data/coordinator:/app
-    restart: no
+    restart: unless-stopped
     command: [ "java", "-cp", "/java/lib/*", "cis5550.kvs.Coordinator", "8081" ]
 
 
@@ -55,6 +55,6 @@ services:
     image: sergiogcx/ubercrawl_frontend:main
     ports:
       - "8080:8080"
-    restart: always
+    restart: unless-stopped
     depends_on:
       - ubercrawl-api
