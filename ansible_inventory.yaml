@@ -34,18 +34,27 @@ kvs_workers: &kvs_workers
 kvs_coordinators: &kvs_coordinators
   hosts:
     kvs_coordinator:
-      ansible_host: 167.71.85.190
+      ansible_host: 157.245.211.10
+  vars:
+    kvs_coordinator_port: 8000
 
 
 flame_coordinators: &flame_coordinators
   hosts:
     flame_coordinator:
-      ansible_host: 167.71.93.193
+      ansible_host: 157.245.211.10
   vars:
     kvs_coordinator_ip: 157.245.211.10
     kvs_coordinator_port: 8000
 
-all_servers: &all_servers
-#  <<: *coordinators
-#  <<: *kvs_workers
+frontend: &frontend
+  hosts:
+    ubercrawl_frontend:
+      ansible_host: 165.227.68.5
+
+all_servers:
+  <<: *kvs_coordinators
+  <<: *flame_coordinators
   <<: *flame_workers
+  <<: *kvs_workers
+  <<: *frontend
