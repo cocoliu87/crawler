@@ -6,4 +6,4 @@ services:
     ports:
       - "9001:9001"
     restart: always
-    command: [ "java", "-cp", "/java/lib/*", "cis5550.flame.Worker", "9004", "${FLAME_SERVER_HOST}:${FLAME_SERVER_PORT}" ]
+    command: [ "java", "-cp", "/java/lib/*", "cis5550.flame.Worker", "9001", "${FLAME_SERVER_HOST}:${FLAME_SERVER_PORT}" ]

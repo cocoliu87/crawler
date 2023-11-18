@@ -36,6 +36,13 @@
         line: "{{ lookup('pipe', 'ssh-keyscan -t rsa github.com') }}"
         regexp: "^github\\.com"
 
+    - name: Recursively change ownership of a directory
+      ansible.builtin.file:
+        path: /home/ubercrawl/.ssh
+        state: directory
+        recurse: True
+        owner: ubercrawl
+        group: sudo
 
     #
     # CLONE REPOSITORY
@@ -50,6 +57,13 @@
       environment:
         GIT_SSL_NO_VERIFY: True
 
+    - name: Recursively change ownership of a directory
+      ansible.builtin.file:
+        path: /home/ubercrawl/23fa-CIS5550-ubercrawl
+        state: directory
+        recurse: yes
+        owner: ubercrawl
+        group:
 
     #
     # CRON JOBS

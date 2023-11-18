@@ -6,10 +6,10 @@ flame_workers: &flame_workers
       ansible_host: 167.71.93.193
     flame_worker3:
       ansible_host: 167.71.93.172
-#    flame_worker4:
-#      ansible_host: 167.71.93.193
-#    flame_worker5:
-#      ansible_host: 167.71.93.172
+    flame_worker4:
+      ansible_host: 45.55.196.190
+    flame_worker5:
+      ansible_host: 159.203.117.109
 
 kvs_workers: &kvs_workers
   hosts:
