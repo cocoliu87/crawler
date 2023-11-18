@@ -2,7 +2,7 @@ version: '3.4'
 
 services:
   flame_coordinator:
-    image: ubercrawl_base:main
+    image: sergiogcx/ubercrawl_base:main
     ports:
       - "9000:9000"
     volumes:
