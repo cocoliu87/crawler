@@ -7,5 +7,5 @@ services:
       - "9000:9000"
     volumes:
       - ./data/flame_coordinator:/app/
-    restart: always
+    restart: unless-stopped
     command: [ "java", "-cp", "/java/lib/*", "cis5550.flame.Coordinator", "9000", "${KVS_SERVER_HOST}:${KVS_SERVER_PORT}" ]

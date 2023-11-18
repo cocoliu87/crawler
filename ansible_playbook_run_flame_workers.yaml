@@ -3,11 +3,14 @@
   hosts: flame_workers
 
   tasks:
-    #
-    # Start KVS Coordinator
-    #
-    - name: deploy Docker Compose stack
-      community.docker.docker_compose:
-        project_src: /home/ubercrawl/23fa-CIS5550-ubercrawl
-        files:
-          - aws/aws.flame.worker.yaml
+    # Stop the flame workers
+    - name: Stop flame workers
+      shell: "docker-compose -f 23fa-CIS5550-ubercrawl/aws/aws.flame.worker.yaml down"
+
+    # Start flame workers
+    - name: Start Flame Workers
+      shell: "docker-compose -f 23fa-CIS5550-ubercrawl/aws/aws.flame.worker.yaml up -d"
+      environment:
+        FLAME_SERVER_HOST: 157.245.211.10
+        FLAME_SERVER_PORT: 9000
+        FLAME_WORKER_PORT: "{{ hostvars[inventory_hostname].port }}"

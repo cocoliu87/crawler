@@ -4,6 +4,6 @@ services:
   flame_worker:
     image: sergiogcx/ubercrawl_base:main
     ports:
-      - "9001:9001"
-    restart: always
-    command: [ "java", "-cp", "/java/lib/*", "cis5550.flame.Worker", "9001", "${FLAME_SERVER_HOST}:${FLAME_SERVER_PORT}" ]
+      - "${FLAME_WORKER_PORT}:${FLAME_WORKER_PORT}"
+    restart: unless-stopped
+    command: [ "java", "-cp", "/java/lib/*", "cis5550.flame.Worker", "${FLAME_WORKER_PORT}", "${FLAME_SERVER_HOST}:${FLAME_SERVER_PORT}" ]

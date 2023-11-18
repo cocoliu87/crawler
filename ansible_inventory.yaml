@@ -2,14 +2,19 @@ flame_workers: &flame_workers
   hosts:
     flame_worker1:
       ansible_host: 167.71.85.190
+      port: 9001
     flame_worker2:
       ansible_host: 167.71.93.193
+      port: 9002
     flame_worker3:
       ansible_host: 167.71.93.172
+      port: 9003
     flame_worker4:
       ansible_host: 45.55.196.190
+      port: 9004
     flame_worker5:
       ansible_host: 159.203.117.109
+      port: 9005
 
 kvs_workers: &kvs_workers
   hosts:
