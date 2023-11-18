@@ -143,13 +143,21 @@ function restart() {
   start;
 }
 
-function build_images {
+
+function build_java_image {
     echo "Building base image"
     docker build -f ubercrawl/docker/ubercrawl.base.dockerfile ./ubercrawl -t sergiogcx/ubercrawl_base:main
 
+}
 
-    echo "Building front-end image"
-    docker build -f ./frontend/docker/frontend-build.dockerfile frontend -t sergiogcx/ubercrawl_frontend:main
+function build_frontend_image {
+  echo "Building front-end image"
+      docker build -f ./frontend/docker/frontend-build.dockerfile frontend -t sergiogcx/ubercrawl_frontend:main
+}
+
+function build_images {
+    build_java_images;
+    build_frontend_image;
 }
 
 

@@ -32,6 +32,18 @@ function __ubercrawl_start_flame() {
     sleep 1;
 }
 
+function __ubercrawl_start_api() {
+    echo "Starting: cis5550.api.SearchAPI";
+    $JAVA_COMMAND cis5550.api.SearchAPI 8081 ./ubercrawl &
+    sleep 1;
+}
+
+function start_api() {
+    stop;
+    build;
+    __ubercrawl_start_api;
+}
+
 
 
 function __ubercrawl_stop() {
@@ -60,6 +72,7 @@ function __ubercrawl_restart() {
 function start() {
     __ubercrawl_start_kvs;
     __ubercrawl_start_flame;
+    __ubercrawl_start_api;
 }
 
 function stop() {
@@ -68,6 +81,11 @@ function stop() {
 
 function restart() {
     __ubercrawl_restart;
+}
+
+function build() {
+    find ./ubercrawl/src -type f -name "*.java" -exec javac -classpath "./ubercrawl/lib/*:./src" -d ./ubercrawl/build '{}' +
+    jar cvf ./ubercrawl.jar -C ./ubercrawl/build .;
 }
 
 function runIndexer() {
