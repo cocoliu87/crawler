@@ -1,0 +1,36 @@
+---
+- name: Add ubercrawl user for management
+  hosts: all_servers
+  become: true  # Run tasks as sudo
+
+  tasks:
+    - name: create deployment user
+      user:
+        name: ubercrawl
+        createhome: yes
+        state: present
+        shell: /bin/bash
+      register: ubercrawl
+
+    - name: Create ubercrawl user
+      user:
+        name: ubercrawl
+        password: "{{ 'PeNN-qFB3X6RxFj%Y#pQx!gL8gepUXdA' | password_hash('sha512') }}"
+        shell: /bin/bash
+        update_password: on_create
+      register: ubercrawl
+    - name: Force ubercrawl to change password
+      shell: chage -d 0 ubercrawl
+      when: ubercrawl.changed
+
+    - name: adding existing user 'ubercrawl' to group sudo
+      user:
+        name: ubercrawl
+        groups: sudo
+        append: yes
+
+    - name: adding existing user 'ubercrawl' to group sudo
+      user:
+        name: ubercrawl
+        groups: docker
+        append: yes

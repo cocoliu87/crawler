@@ -1,0 +1,13 @@
+---
+- name: Add ubercrawl user for management
+  hosts: flame_workers
+
+  tasks:
+    #
+    # Start KVS Coordinator
+    #
+    - name: deploy Docker Compose stack
+      community.docker.docker_compose:
+        project_src: /home/ubercrawl/23fa-CIS5550-ubercrawl
+        files:
+          - aws/aws.flame.worker.yaml

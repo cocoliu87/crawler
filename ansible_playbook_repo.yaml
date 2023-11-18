@@ -1,0 +1,79 @@
+---
+- name: Install UberCrawl repository
+  hosts: all_servers
+  become: true  # Run tasks as sudo
+
+  tasks:
+    - name: Create a directory if it does not exist
+      ansible.builtin.file:
+        path: /home/ubercrawl/.ssh/
+        state: directory
+        mode: '0755'
+    - name: Copy GitHub private cert
+      ansible.builtin.copy:
+        src: ./cert/temporary_github
+        dest: /home/ubercrawl/.ssh/temporary_github
+        owner: ubercrawl
+        mode: '0600'
+    - name: Copy GitHub public cert
+      ansible.builtin.copy:
+        src: ./cert/temporary_github.pub
+        dest: /home/ubercrawl/.ssh/temporary_github.pub
+        owner: ubercrawl
+        mode: '0600'
+    - name: Copy GitHub host config
+      ansible.builtin.copy:
+        src: ./cert/config
+        dest: /home/ubercrawl/.ssh/config
+        owner: ubercrawl
+        mode: '0600'
+    # Just for good measure, we must try to make github a known host for cloning
+    - name: ensure github.com is a known host
+      lineinfile:
+        dest: /home/ubercrawl/.ssh/known_hosts
+        create: yes
+        state: present
+        line: "{{ lookup('pipe', 'ssh-keyscan -t rsa github.com') }}"
+        regexp: "^github\\.com"
+
+
+    #
+    # CLONE REPOSITORY
+    #
+    - name: Clone Repository
+      ansible.builtin.git:
+        repo: git@github.com:CIS5550/23fa-CIS5550-ubercrawl.git
+        dest: /home/ubercrawl/23fa-CIS5550-ubercrawl
+        accept_hostkey: yes
+        version: main
+        key_file: "/home/ubercrawl/.ssh/temporary_github"
+      environment:
+        GIT_SSL_NO_VERIFY: True
+
+
+    #
+    # CRON JOBS
+    #
+    # Set up a cron job every 5 minutes to pull the repo
+    - name: Crates gitpull crontab
+      ansible.builtin.cron:
+        name: GitPull
+        minute: "*/5"
+        hour: "*"
+        day: "*"
+        month: "*"
+        weekday: "*"
+        user: ubercrawl
+        job: "/usr/bin/bash /home/ubercrawl/23fa-CIS5550-ubercrawl/gitpull.sh"
+
+    # Every five minutes, refresh our docker images
+    - name: Crates dockerpull crontab
+      ansible.builtin.cron:
+        name: DockerPull
+        minute: "*/5"
+        hour: "*"
+        day: "*"
+        month: "*"
+        weekday: "*"
+        user: ubercrawl
+        job: "/usr/bin/bash /home/ubercrawl/23fa-CIS5550-ubercrawl/dockerpull.sh"
