@@ -5,16 +5,16 @@
   tasks:
     # Stop the flame workers
     - name: Stop flame workers
-      shell: "docker-compose -f 23fa-CIS5550-ubercrawl/aws/aws.flame.worker.yaml down"
+      shell: "docker-compose -f 23fa-CIS5550-ubercrawl/aws/aws.frontend.yaml down"
       environment:
-        FLAME_SERVER_HOST: "{{ flame_coordinator_ip }}"
-        FLAME_SERVER_PORT: "{{ flame_coordinator_port }}"
+        FLAME_SERVER_HOST: 157.245.211.10
+        FLAME_SERVER_PORT: 9000
         FLAME_WORKER_PORT: "{{ hostvars[inventory_hostname].port }}"
 
     # Start flame workers
     - name: Start Flame Workers
       shell: "docker-compose -f 23fa-CIS5550-ubercrawl/aws/aws.flame.worker.yaml up -d"
       environment:
-        FLAME_SERVER_HOST: "{{ flame_coordinator_ip }}"
-        FLAME_SERVER_PORT: "{{ flame_coordinator_port }}"
+        FLAME_SERVER_HOST: 157.245.211.10
+        FLAME_SERVER_PORT: 9000
         FLAME_WORKER_PORT: "{{ hostvars[inventory_hostname].port }}"

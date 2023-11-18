@@ -15,29 +15,35 @@ flame_workers: &flame_workers
     flame_worker5:
       ansible_host: 159.203.117.109
       port: 9005
+  vars:
+    flame_coordinator_ip: 157.245.211.10
+    flame_coordinator_port: 9000
 
 kvs_workers: &kvs_workers
   hosts:
     kvs_worker1:
-      ansible_host: 167.71.85.190
+      ansible_host: 159.203.121.117
     kvs_worker2:
-      ansible_host: 167.71.93.193
+      ansible_host: 209.97.149.86
     kvs_worker3:
-      ansible_host: 167.71.93.172
-    kvs_worker4:
-      ansible_host: 167.71.93.172
-    kvs_worker5:
-      ansible_host: 167.71.93.172
+      ansible_host: 209.97.149.86
+  vars:
+    kvs_coordinator_ip: 157.245.211.10
+    kvs_coordinator_port: 8000
 
 kvs_coordinators: &kvs_coordinators
   hosts:
     kvs_coordinator:
       ansible_host: 167.71.85.190
 
+
 flame_coordinators: &flame_coordinators
   hosts:
     flame_coordinator:
       ansible_host: 167.71.93.193
+  vars:
+    kvs_coordinator_ip: 157.245.211.10
+    kvs_coordinator_port: 8000
 
 all_servers: &all_servers
 #  <<: *coordinators
