@@ -50,11 +50,20 @@ services:
       - "8080:8080"
     restart: always
 
+  ubercrawl-api:
+    image: sergiogcx/ubercrawl_base:main
+    ports:
+      - "8081:8081"
+    volumes:
+      - ./ubercrawl/static:/app/static
+    restart: no
+    command: [ "java", "-cp", "/java/lib/*", "cis5550.api.SearchAPI", "8081", "/app/static" ]
+
   #
   # UberCrawl: KVS & KVS Workers
   #
   kvs_coordinator:
-    image: ubercrawl_base:main
+    image: sergiogcx/ubercrawl_base:main
     ports:
       - "8000:8000"
     volumes:
@@ -62,7 +71,7 @@ services:
     restart: no
     command: [ "java", "-cp", "/java/lib/*", "cis5550.kvs.Coordinator", "8000"]
   kvs_workers:
-    image: ubercrawl_base:main
+    image: sergiogcx/ubercrawl_base:main
     deploy:
       replicas: 5
     expose:
@@ -76,7 +85,7 @@ services:
   # UberCrawl: Flame & Flame Workers
   #
   flame_coordinator:
-    image: ubercrawl_base:main
+    image: sergiogcx/ubercrawl_base:main
     ports:
       - "9000:9000"
     volumes:
@@ -86,7 +95,7 @@ services:
     depends_on:
       - kvs_coordinator
   flame_workers:
-    image: ubercrawl_base:main
+    image: sergiogcx/ubercrawl_base:main
     deploy:
       replicas: 5
     expose:

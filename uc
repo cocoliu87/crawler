@@ -86,9 +86,6 @@ function stop() {
       "worker")
         docker-compose -f compose.coordinator.yaml  down --volumes --remove-orphans;
       ;;
-      "nginx")
-        docker-compose -f compose.nginx.yaml  down --volumes --remove-orphans;
-      ;;
       *)
         echo "Invalid option ${APPLY_MODE}";
       ;;
@@ -144,7 +141,7 @@ function restart() {
 }
 
 
-function build_java_image {
+function build_java_images {
     echo "Building base image"
     docker build -f ubercrawl/docker/ubercrawl.base.dockerfile ./ubercrawl -t sergiogcx/ubercrawl_base:main
 
@@ -174,6 +171,10 @@ function show_banner() {
   show_ubercarwl_msg;
   printf " UberCrawl Cluster: \e[32m $1 $2 $3 $4\e[0m\n";
   echo "- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -";
+}
+
+function start_local {
+    docker-compose -f ubercrawl.local.yaml up -d;
 }
 
 #
