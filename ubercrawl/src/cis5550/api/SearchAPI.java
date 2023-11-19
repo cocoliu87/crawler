@@ -9,8 +9,8 @@ class SearchAPI {
 
     private static final Logger logger = Logger.getLogger(SearchAPI.class);
 
-    private static String mockSearch() throws IOException {
-        FileInputStream fis = new FileInputStream("ubercrawl/static/MockData.json");
+    private static String mockSearch(String mockDataFile) throws IOException {
+        FileInputStream fis = new FileInputStream(mockDataFile);
         byte[] buffer = new byte[10];
         StringBuilder sb = new StringBuilder();
         while (fis.read(buffer) != -1) {
@@ -23,32 +23,23 @@ class SearchAPI {
 
 
     public static void main(String args[]) throws IOException {
-        // Initialize defautl port
-        if(args.length == 0) {
-            port(8081);
-        }
-        // Allow for changing the port
-        else if (args.length > 0) {
-            port(Integer.parseInt(args[0]));
-        }
+        // Initialize port
+        port(Integer.parseInt(args[0]));
+        // Initialize Mock data file path
+        String mockDataFile = args[1];
 
-        // Allow static file render when provided a path
-        if (args.length == 2) {
-            String staticFilesPath = args[1];
-            System.out.println("Static Folder: " + staticFilesPath);
-            staticFiles.location(staticFilesPath);
-        }
+        staticFiles.location("static");
 
         post("/search", (req,res) -> {
             String searchTerm = req.queryParams("term");
             res.header("X-SearchTerm", searchTerm);
-            return mockSearch();
+            return mockSearch(mockDataFile);
         });
 
         get("/search", (req,res) -> {
             String searchTerm = req.queryParams("term");
             res.header("X-SearchTerm", searchTerm);
-            return mockSearch();
+            return mockSearch(mockDataFile);
         });
     }
 }

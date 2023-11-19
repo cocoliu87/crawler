@@ -57,7 +57,7 @@ services:
     volumes:
       - ./ubercrawl/static:/app/static
     restart: no
-    command: [ "java", "-cp", "/java/lib/*", "cis5550.api.SearchAPI", "8081", "/app/static" ]
+    command: [ "java", "-cp", "/java/lib/*", "cis5550.api.SearchAPI", "8081", "/app/static/MockData.json" ]
 
   #
   # UberCrawl: KVS & KVS Workers
