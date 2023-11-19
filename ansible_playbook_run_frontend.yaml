@@ -9,6 +9,10 @@
 
     # Pull latest images
     - name: Pull images
+      shell: "/usr/bin/bash /home/ubercrawl/23fa-CIS5550-ubercrawl/gitpull.sh"
+
+    # Pull latest images
+    - name: Pull images
       shell: "/usr/bin/bash /home/ubercrawl/23fa-CIS5550-ubercrawl/dockerpull.sh"
 
     # Start frontend
