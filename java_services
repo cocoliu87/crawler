@@ -17,10 +17,6 @@ function __ubercrawl_start_kvs() {
     sleep 1;
     echo "Starting: cis5550.kvs.Worker (1)";
     $JAVA_COMMAND cis5550.kvs.Worker 8001 worker1 localhost:8000 &
-    echo "Starting: cis5550.kvs.Worker (1)";
-    $JAVA_COMMAND cis5550.kvs.Worker 8002 worker2 localhost:8000 &
-    echo "Starting: cis5550.kvs.Worker (3)";
-    $JAVA_COMMAND cis5550.kvs.Worker 8003 worker3 localhost:8000 &
     sleep 1;
 }
 
@@ -33,6 +29,9 @@ function __ubercrawl_start_flame() {
     sleep 1;
     echo "Starting: cis5550.flame.Worker (2)";
     $JAVA_COMMAND cis5550.flame.Worker 9002 localhost:9000 &
+    sleep 1;
+    echo "Starting: cis5550.flame.Worker (3)";
+    $JAVA_COMMAND cis5550.flame.Worker 9003 localhost:9000 &
     sleep 1;
 }
 
@@ -97,7 +96,7 @@ function runCrawl() {
     cis5550.flame.FlameSubmit \
     localhost:9000 \
     ubercrawl/lib/ubercrawl.jar \
-    cis5550.jobs.Crawler seed https://www.wikipedia.org;
+    cis5550.jobs.Crawler seed https://en.wikipedia.org/wiki/Main_Page
 }
 
 
