@@ -92,3 +92,4 @@ nb-configuration.xml
 data/
 cert/
 out/
+worker*

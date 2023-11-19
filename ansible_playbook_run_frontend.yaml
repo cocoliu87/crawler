@@ -8,7 +8,7 @@
       shell: "docker-compose -f 23fa-CIS5550-ubercrawl/aws/aws.frontend.yaml down"
 
     # Pull latest images
-    - name: Pull images
+    - name: Pull repo
       shell: "/usr/bin/bash /home/ubercrawl/23fa-CIS5550-ubercrawl/gitpull.sh"
 
     # Pull latest images

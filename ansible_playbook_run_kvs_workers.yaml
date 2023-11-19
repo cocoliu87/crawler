@@ -1,0 +1,18 @@
+---
+- name: Add ubercrawl user for management
+  hosts: kvs_workers
+
+  tasks:
+    # Stop the flame workers
+    - name: Stop flame workers
+      shell: "docker-compose -f 23fa-CIS5550-ubercrawl/aws/aws.kvs.worker.yaml down"
+      environment:
+        KVS_SERVER_HOST: "{{ kvs_coordinator_ip }}"
+        KVS_SERVER_PORT: "{{ kvs_coordinator_port }}"
+
+    # Start flame workers
+    - name: Start Flame Workers
+      shell: "docker-compose -f 23fa-CIS5550-ubercrawl/aws/aws.kvs.worker.yaml up -d"
+      environment:
+        KVS_SERVER_HOST: "{{ kvs_coordinator_ip }}"
+        KVS_SERVER_PORT: "{{ kvs_coordinator_port }}"

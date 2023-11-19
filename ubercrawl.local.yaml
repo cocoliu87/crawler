@@ -48,7 +48,7 @@ services:
       dockerfile: docker/frontend-build.dockerfile
     ports:
       - "8080:8080"
-    restart: always
+    restart: unless-stopped
 
   ubercrawl-api:
     image: sergiogcx/ubercrawl_base:main
@@ -76,7 +76,7 @@ services:
       replicas: 5
     expose:
       - 8001
-    restart: always
+    restart: unless-stopped
     command: [ "java", "-cp", "/java/lib/*", "cis5550.kvs.Worker", "8001", "worker", "kvs_coordinator:8000"]
     depends_on:
     - kvs_coordinator
@@ -90,17 +90,48 @@ services:
       - "9000:9000"
     volumes:
       - ./data/flame_coordinator:/app/
-    restart: always
+    restart: unless-stopped
     command: [ "java", "-cp", "/java/lib/*", "cis5550.flame.Coordinator", "9000", "kvs_coordinator:8000" ]
     depends_on:
       - kvs_coordinator
-  flame_workers:
+
+  #
+  # Flame workers use the port as their ID,
+  # unfortunately we must run several manually
+  # because docker doesn't support variables.
+  # There could be work-arounds, like running
+  # these in a shell sequentially, or running
+  # docker within docker.
+  #
+  flame_worker1: &flame_worker_template
     image: sergiogcx/ubercrawl_base:main
-    deploy:
-      replicas: 5
+    restart: unless-stopped
     expose:
       - 9001
-    restart: always
     command: [ "java", "-cp", "/java/lib/*", "cis5550.flame.Worker", "9001", "flame_coordinator:9000" ]
     depends_on:
       - flame_coordinator
+
+  flame_worker2:
+    <<: *flame_worker_template
+    expose:
+      - 9002
+    command: [ "java", "-cp", "/java/lib/*", "cis5550.flame.Worker", "9002", "flame_coordinator:9000" ]
+
+  flame_worker3:
+    <<: *flame_worker_template
+    expose:
+      - 9003
+    command: [ "java", "-cp", "/java/lib/*", "cis5550.flame.Worker", "9003", "flame_coordinator:9000" ]
+
+  flame_worker4:
+    <<: *flame_worker_template
+    expose:
+      - 9004
+    command: [ "java", "-cp", "/java/lib/*", "cis5550.flame.Worker", "9004", "flame_coordinator:9000" ]
+
+  flame_worker5:
+    <<: *flame_worker_template
+    expose:
+      - 9005
+    command: [ "java", "-cp", "/java/lib/*", "cis5550.flame.Worker", "9005", "flame_coordinator:9000" ]

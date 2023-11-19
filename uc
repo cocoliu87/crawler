@@ -54,14 +54,8 @@ function start() {
         echo -e "\nReact build now running on http://localhost:8080  (it might take a minute to boot)";
         echo -e "To stop: ./uc stop frontend-build";
       ;;
-      "coordinator")
-        docker-compose -f compose.coordinator.yaml up -d;
-      ;;
-      "worker")
-        docker-compose -f compose.coordinator.yaml up -d;
-      ;;
-      "nginx")
-        docker-compose -f compose.nginx.yaml up -d;
+      "local_stack")
+        docker-compose -f ubercrawl.local.yaml up -d;
       ;;
       *)
         echo "Invalid option ${APPLY_MODE}";
@@ -75,16 +69,13 @@ function stop() {
 
     case "${SERVICE_MODE}" in
       "frontend")
-        docker-compose -f compose.frontend.dev.yaml  down --volumes --remove-orphans;
+        docker-compose -f compose.frontend.dev.yaml down --volumes --remove-orphans;
       ;;
       "frontend-build")
-        docker-compose -f compose.frontend.yaml  down --volumes --remove-orphans;
+        docker-compose -f compose.frontend.yaml down --volumes --remove-orphans;
       ;;
-      "coordinator")
-        docker-compose -f compose.coordinator.yaml  down --volumes --remove-orphans;
-      ;;
-      "worker")
-        docker-compose -f compose.coordinator.yaml  down --volumes --remove-orphans;
+      "local_stack")
+        docker-compose -f ubercrawl.local.yaml down --volumes --remove-orphans;
       ;;
       *)
         echo "Invalid option ${APPLY_MODE}";
@@ -97,7 +88,6 @@ function stop() {
 # Stops the cluster and removes any created volumes
 #
 function clean() {
-#  docker-compose -f local.compose.yml down --volumes --remove-orphans;
   echo "Cleaning";
 }
 
@@ -171,10 +161,6 @@ function show_banner() {
   show_ubercarwl_msg;
   printf " UberCrawl Cluster: \e[32m $1 $2 $3 $4\e[0m\n";
   echo "- - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - - -";
-}
-
-function start_local {
-    docker-compose -f ubercrawl.local.yaml up -d;
 }
 
 #

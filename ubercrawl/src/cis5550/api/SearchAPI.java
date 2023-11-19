@@ -30,15 +30,17 @@ class SearchAPI {
 
         staticFiles.location("static");
 
-        post("/search", (req,res) -> {
+        post("/api/search", (req,res) -> {
             String searchTerm = req.queryParams("term");
             res.header("X-SearchTerm", searchTerm);
+            res.type("application/json");
             return mockSearch(mockDataFile);
         });
 
-        get("/search", (req,res) -> {
+        get("/api/search", (req,res) -> {
             String searchTerm = req.queryParams("term");
             res.header("X-SearchTerm", searchTerm);
+            res.type("application/json");
             return mockSearch(mockDataFile);
         });
     }
