@@ -1,5 +1,5 @@
 ---
-- name: Add ubercrawl user for management
+- name: Restart Frontend
   hosts: frontend
 
   tasks:

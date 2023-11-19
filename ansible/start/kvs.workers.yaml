@@ -1,0 +1,11 @@
+---
+- name: Start KVS Workers
+  hosts: kvs_workers
+
+  tasks:
+    # Start KVS workers
+    - name: Start KVS Workers
+      shell: "docker-compose -f 23fa-CIS5550-ubercrawl/aws/aws.kvs.worker.yaml up -d"
+      environment:
+        KVS_SERVER_HOST: "{{ kvs_coordinator_ip }}"
+        KVS_SERVER_PORT: "{{ kvs_coordinator_port }}"

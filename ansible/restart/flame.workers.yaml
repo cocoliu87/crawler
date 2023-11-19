@@ -1,5 +1,5 @@
 ---
-- name: Add ubercrawl user for management
+- name: Restart Flame Workers
   hosts: flame_workers
 
   tasks:
@@ -10,6 +10,15 @@
         FLAME_SERVER_HOST: "{{ flame_coordinator_ip }}"
         FLAME_SERVER_PORT: "{{ flame_coordinator_port }}"
         FLAME_WORKER_PORT: "{{ hostvars[inventory_hostname].port }}"
+
+
+    # Pull latest images
+    - name: Pull repo
+      shell: "/usr/bin/bash /home/ubercrawl/23fa-CIS5550-ubercrawl/gitpull.sh"
+
+    # Pull latest images
+    - name: Pull images
+      shell: "/usr/bin/bash /home/ubercrawl/23fa-CIS5550-ubercrawl/dockerpull.sh"
 
     # Start flame workers
     - name: Start Flame Workers

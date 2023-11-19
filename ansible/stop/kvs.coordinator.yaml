@@ -1,0 +1,16 @@
+---
+- name: Stop KVS coordinators
+  hosts: kvs_coordinators
+
+  tasks:
+    # Stop the kvs coordinator
+    - name: Stop kvs coordinator
+      shell: "docker-compose -f 23fa-CIS5550-ubercrawl/aws/aws.kvs.coordinator.yaml down"
+
+    # Pull latest images
+    - name: Pull repo
+      shell: "/usr/bin/bash /home/ubercrawl/23fa-CIS5550-ubercrawl/gitpull.sh"
+
+    # Pull latest images
+    - name: Pull images
+      shell: "/usr/bin/bash /home/ubercrawl/23fa-CIS5550-ubercrawl/dockerpull.sh"

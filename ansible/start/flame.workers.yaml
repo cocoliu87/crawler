@@ -1,0 +1,12 @@
+---
+- name: Add ubercrawl user for management
+  hosts: flame_workers
+
+  tasks:
+    # Start flame workers
+    - name: Start Flame Workers
+      shell: "docker-compose -f 23fa-CIS5550-ubercrawl/aws/aws.flame.worker.yaml up -d"
+      environment:
+        FLAME_SERVER_HOST: "{{ flame_coordinator_ip }}"
+        FLAME_SERVER_PORT: "{{ flame_coordinator_port }}"
+        FLAME_WORKER_PORT: "{{ hostvars[inventory_hostname].port }}"
