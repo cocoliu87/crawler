@@ -89,6 +89,7 @@ function restart() {
 function build() {
     find ./ubercrawl/src -type f -name "*.java" -exec javac -classpath "./ubercrawl/lib/*:./src" -d ./ubercrawl/build '{}' +
     jar cvf ./ubercrawl.jar -C ./ubercrawl/build .;
+    mv ./ubercrawl.jar ubercrawl/lib;
 }
 
 function runCrawl() {
