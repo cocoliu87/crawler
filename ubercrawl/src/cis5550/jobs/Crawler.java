@@ -11,18 +11,10 @@ import java.io.InputStreamReader;
 import java.io.RandomAccessFile;
 import java.net.HttpURLConnection;
 import java.net.URL;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.Iterator;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
-import java.util.Scanner;
-import java.util.Set;
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-
 
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
@@ -37,7 +29,13 @@ import cis5550.tools.Hasher;
 import cis5550.tools.Logger;
 import cis5550.tools.URLParser;
 
+
 public class Crawler {
+    private static final Pattern LINK_PATTERN = Pattern.compile("<a\\s+(?:[^>]*?\\s+)?href=\"([^\"]*)\"", Pattern.CASE_INSENSITIVE);
+    private static final Set<String> seenUrls = ConcurrentHashMap.newKeySet();
+    private static final int MAX_PERMITS = 10; // You can adjust this value as needed
+    private static final Set<String> globalUrlSet = ConcurrentHashMap.newKeySet();
+
     public static String normalize(String s, String base) {
         if (s.indexOf("#") != -1) {
             s = s.substring(0, s.indexOf("#"));
@@ -120,22 +118,14 @@ public class Crawler {
         return ret;
     }
     public static List<String> find_url(String content) {
-        String regex = "<[aA](.*?)>";
-        //Creating a pattern object
-        Pattern pattern = Pattern.compile(regex);
-        //Matching the compiled pattern in the String
-        Matcher matcher = pattern.matcher(content);
-        LinkedList<String> ret = new LinkedList<String>();
+        Matcher matcher = LINK_PATTERN.matcher(content);
+        List<String> links = new ArrayList<>();
         while (matcher.find()) {
-            String possible_groups = matcher.group(1);
-            for (String group: possible_groups.split(" ")) {
-                String[] group_list = group.replaceAll(" ", "").split("=");
-                if (group_list.length == 2 && group_list[0].equals("href")) {
-                    ret.add(group_list[1].replaceAll("'", "").replaceAll("\"", ""));
-                }
-            }
+            String url = matcher.group(1);
+            // Further filtering can be done here if necessary.
+            links.add(url);
         }
-        return ret;
+        return links;
     }
 
     private static final Logger logger = Logger.getLogger(Crawler.class);
@@ -151,37 +141,11 @@ public class Crawler {
                 seed.add(normalize(arr[i], ""));
             }
         }
-        else {
-            try {
-                Iterator<Row> iter = ctx.getKVS().scan("frontier");
-                while (iter.hasNext()) {
-                    seed.add(iter.next().get("url"));
-                }
-            } catch (FileNotFoundException e) {
-                e.printStackTrace();
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }
 
-//			try {
-//			    File myObj = new File("frontier.txt");
-//			    Scanner myReader = new Scanner(myObj);
-//		        while (myReader.hasNextLine()) {
-//			        String data = myReader.nextLine();
-//			        seed.add(data);
-////			        System.out.println(data);
-//			    }
-//			    myReader.close();
-//		    } catch (FileNotFoundException e) {
-//		    	System.out.println("An error occurred.");
-//			    e.printStackTrace();
-//			}
-//		logger.info("seed: " + seed.toString());
         ctx.output("OK?");
 
         FlameRDD urlQueue = null;
-//		System.out.println(seed);
+
         try {
             urlQueue = ctx.parallelize(seed);
         } catch (Exception e1) {
@@ -195,19 +159,15 @@ public class Crawler {
                 count += 1;
 
                 urlQueue = urlQueue.flatMap(u-> {
-//	    			logger.info(u);
+
                     Set<String> new_url_list = new HashSet<String>();
                     try {
-//	    				KVSClient kvs_url = new KVSClient(kvs_master_url);
-//	    				RandomAccessFile crawled_url =  new RandomAccessFile("crawled_url", "rw");
                         KVSClient kvs = new KVSClient(kvs_master);
                         String hashKey = Hasher.hash(u);
 
-                        if (kvs.existsRow("pt-crawled-url", hashKey)) {
+                        if (kvs.existsRow("pt-crawl", hashKey)) {
                             return new_url_list;
                         }
-
-                        kvs.put("pt-crawled-url", hashKey, "url", u);
 
                         String[] parsed_url = URLParser.parseURL(u);
                         Row host_row = kvs.getRow("hosts", parsed_url[1]);
@@ -260,7 +220,6 @@ public class Crawler {
                             robot_con.setReadTimeout(5000);
                             robot_con.setRequestMethod("GET");
                             robot_con.setDoOutput(true);
-//				    		robot_con.setRequestProperty("Content-Type", "application/jar-archive");
                             robot_con.setRequestProperty("User-Agent", "cis5550-crawler");
                             robot_con.setInstanceFollowRedirects(false);
                             robot_con.connect();
@@ -273,9 +232,6 @@ public class Crawler {
                                         break;
                                     robots_txt = robots_txt + "\n" + l;
                                 }
-//					    		System.out.println(robot_txt);
-//					    		System.out.println(robot_con.getResponseCode());
-//	    						kvs.put("hosts", parsed_url[1], "robots_txt", robots_txt);
                                 host_row.put("robots_txt", robots_txt);
                             }
                         }
@@ -286,12 +242,10 @@ public class Crawler {
                         con.setConnectTimeout(5000);
                         con.setRequestMethod("HEAD");
                         con.setDoOutput(true);
-//					    con.setRequestProperty("Content-Type", "application/jar-archive");
                         con.setInstanceFollowRedirects(false);
                         con.setRequestProperty("User-Agent", "cis5550-crawler");
                         con.connect();
                         Row row = new Row(hashKey);
-//	    				Row row = new Row(String.valueOf(u.hashCode()));
                         row.put("url", u);
                         int code = con.getResponseCode();
                         row.put("responseCode", String.valueOf(code));
@@ -318,10 +272,11 @@ public class Crawler {
                             row.put("length", con.getHeaderField("Content-Length"));
                         }
                         HashSet<Integer> s = new HashSet<Integer>(Arrays.asList(301, 302, 303, 307, 308));
+
                         if (code == 200) {
                             HttpURLConnection con1 = (HttpURLConnection)(new URL(u)).openConnection();
-                            con1.setConnectTimeout(5000);
-                            con1.setReadTimeout(5000);
+                            con1.setConnectTimeout(10000);
+                            con1.setReadTimeout(10000);
                             con1.setRequestMethod("GET");
                             con1.setDoOutput(true);
                             con1.setRequestProperty("User-Agent", "cis5550-crawler");
@@ -335,89 +290,68 @@ public class Crawler {
                                 buffer.write(b);
                             }
                             String result = new String(buffer.toByteArray());
-                            for (String line: result.split("\n")) {
-                                List<String> new_raw_urls = find_url(line);
-                                for (String new_raw_url: new_raw_urls) {
-                                    String new_url = normalize(new_raw_url, u);
-                                    if (!new_raw_url.equals("") && !new_url.equals("") && !new_url.equals(u) && (new_url.contains("wiki") || new_url.contains("bbc") || new_url.contains("simple.crawltest.cis5550"))) {
-                                        new_url_list.add(new_url);
-                                    }
-                                }
-                            }
+
                             row.put("responseCode", String.valueOf(con1.getResponseCode()));
 
                             if (row.get("contentType") != null && row.get("contentType").contains("text/html")) {
-                                row.put("page", result);
+//                                row.put("page", result);
+
                                 if (lower_header.containsKey("content-language") && !lower_header.get("content-language").startsWith("en")) {
-//	    							logger.info("language check: " + u+" "+ lower_header.get("content-language"));
                                 } else {
                                     if (!lower_header.containsKey("content-language")) {
-//	    								logger.info("check2: "+u+" "+Jsoup.parse(result).head().text());
                                     }
-                                    Row r2 = new Row(row.key());
                                     Document doc = Jsoup.parse(result);
-                                    String head_txt = doc.head().text();
-                                    String body_txt = doc.body().text();
-                                    r2.put("head", head_txt);
-                                    if (!r2.get("head").matches("[a-zA-Z0-9~!@#$%^&*()_–+-=|\\[\\]\\{\\};':\",.<>\\/\\?\\s]+")) {
-//	    								logger.info("match: "+r2.get("head")+" "+u);
-                                        return new_url_list;
+                                    Element mainContent = doc.select("#mw-content-text > div.mw-content-ltr.mw-parser-output").first();
+                                    String bodyText = mainContent.text();
+                                    String limitedBodyText = bodyText.substring(0, Math.min(bodyText.length(), 10000));
+                                    row.put("page", limitedBodyText);
+
+                                    final int maxUrlsToExtract = 100;
+                                    int extractedUrlsCount = 0;
+
+                                    if (kvs.count("uurl") < 1000) {
+                                        for (String line : result.split("\n")) {
+                                            List<String> new_raw_urls = find_url(line);
+                                            for (String new_raw_url : new_raw_urls) {
+                                                String new_url = normalize(new_raw_url, u);
+                                                if (!new_url.isEmpty() && !seenUrls.contains(new_url)) {
+                                                    if (new_url.contains("en.wikipedia.org") || new_url.contains("bbc") || new_url.contains("simple.crawltest.cis5550")) {
+                                                        new_url_list.add(new_url);
+                                                        kvs.put("uurl", hashKey, "url", new_url);
+                                                        seenUrls.add(new_url); // Remember this URL so we don't re-add it later
+                                                        extractedUrlsCount++;
+
+                                                        // Break out of the loop if we have reached the limit
+                                                        if (extractedUrlsCount >= maxUrlsToExtract) {
+                                                            break;
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                            // Check if we should break out of the outer loop as well
+                                            if (extractedUrlsCount >= maxUrlsToExtract) {
+                                                break;
+                                            }
+                                        }
                                     }
-//	    							System.out.println("yeah: "+r2.get("head"));
-                                    Element desc = doc.head().selectFirst("meta[name$=description]");
-                                    if (desc != null && desc.attr("content") != null) {
-                                        r2.put("description", desc.attr("content"));
-                                    } else {
-                                        // if body_txt doesn't have length more than 100,
-                                        // view it as ineffective document, and will catch Exception
-                                        r2.put("description", body_txt.substring(0, 100));
-                                    }
-                                    String children_urls = String.join(" ", new_url_list);
-                                    r2.put("url", u);
-                                    r2.put("text", body_txt);
-                                    r2.put("children_urls", children_urls);
-                                    kvs.putRow("pt-plain-text", r2);
-                                    kvs.put("pt-url", row.key(), "url", u);
                                 }
                             }
                         } else if (s.contains(code)){
-//	    					System.out.println(u+" "+u.hashCode()+" "+ code);
-//	    					System.out.println(lower_header.get("location"));
                             if (!lower_header.get("location").equals(u)) {
                                 new_url_list.add(normalize(lower_header.get("location"), u));
                             }
                         }
-//	    				kvs.putRow("crawl", row);
+                        kvs.putRow("pt-crawl", row);
+                        System.gc();
                     } catch (Exception e) {
                         logger.error("Error in flatmap: " + u +" "+e.toString());
                     }
-//	    			System.out.println(u);
-//	    			System.out.println(new_url_list.toString());
-//	    			logger.info(String.valueOf(u));
-//	    			logger.info(new_url_list.toString());
                     return new_url_list;
                 });
-//	    		Thread.sleep(1000);
-//	    		System.out.println("one iteration: " + urlQueue.collect().toString());
-//	    		logger.info("one iteration "+count+": " + urlQueue.collect().toString());
-                HashSet<String> urlQueueSet = new HashSet<String>(urlQueue.collect());
-                List<String> new_seed = new LinkedList<String>();
-//	    		System.out.println(urlQueueSet);
-                ctx.getKVS().delete("frontier");
-
-                for (String u: urlQueueSet) {
-                    String hashed_u = Hasher.hash(u);
-                    if (!ctx.getKVS().existsRow("pt-crawled-url", hashed_u)) {
-                        new_seed.add(u);
-                        ctx.getKVS().put("frontier", hashed_u, "url", u);
-                    }
-                }
-                urlQueue = ctx.parallelize(new_seed);
-                System.gc();
+                ctx.getKVS().delete("uurl");
             }
         } catch (Exception e) {
             e.printStackTrace();
         }
     }
-
 }
