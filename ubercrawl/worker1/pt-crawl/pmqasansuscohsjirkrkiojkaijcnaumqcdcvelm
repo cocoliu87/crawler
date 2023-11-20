@@ -1,0 +1,33 @@
+pmqasansuscohsjirkrkiojkaijcnaumqcdcvelm length 5 70107 page 5754 The Davis–Putnam algorithm was developed by Martin Davis and Hilary Putnam for checking the validity of a first-order logic formula using a resolution-based decision procedure for propositional logic. Since the set of valid first-order formulas is recursively enumerable but not recursive, there exists no general algorithm to solve this problem. Therefore, the Davis–Putnam algorithm only terminates on valid formulas. Today, the term "Davis–Putnam algorithm" is often used synonymously with the resolution-based propositional decision procedure (Davis–Putnam procedure) that is actually only one of the steps of the original algorithm. Overview[edit] Two runs of the Davis-Putnam procedure on example propositional ground instances. Top to bottom, Left: Starting from the formula ( a ∨ b ∨ c ) ∧ ( b ∨ ¬ c ∨ ¬ f ) ∧ ( ¬ b ∨ e ) {\displaystyle (a\lor b\lor c)\land (b\lor \lnot c\lor \lnot f)\land (\lnot b\lor e)} , the algorithm resolves on b {\displaystyle b} , and then on c {\displaystyle c} . Since no further resolution is possible, the algorithm stops; since the empty clause couldn't be derived, the result is "satisfiable". Right: Resolving the given formula on b {\displaystyle b} , then on a {\displaystyle a} , then on c {\displaystyle c} yields the empty clause; hence the algorithm returns "unsatisfiable". The procedure is based on Herbrand's theorem, which implies that an unsatisfiable formula has an unsatisfiable ground instance, and on the fact that a formula is valid if and only if its negation is unsatisfiable. Taken together, these facts imply that to prove the validity of φ it is enough to prove that a ground instance of ¬φ is unsatisfiable. If φ is not valid, then the search for an unsatisfiable ground instance will not terminate. The procedure for checking validity of a formula φ roughly consists of these three parts: put the formula ¬φ in prenex form and eliminate quantifiers generate all propositional ground instances, one by one check if each instance is satisfiable. If some instance is unsatisfiable, then return that φ is valid. Else continue checking. The last part is a SAT solver based on resolution (as seen on the illustration), with an eager use of unit propagation and pure literal elimination (elimination of clauses with variables that occur only positively or only negatively in the formula).[clarification needed] Algorithm DP SAT solver
+    Input: A set of clauses Φ.
+    Output: A Truth Value: true if Φ can be satisfied, false otherwise.
+ function DP-SAT(Φ)
+   repeat
+       // unit propagation:
+       while Φ contains a unit clause {l} do
+           for every clause c in Φ that contains l do
+              Φ ← remove-from-formula(c, Φ);
+           for every clause c in Φ that contains ¬l do
+              Φ ← remove-from-formula(c, Φ);
+              Φ ← add-to-formula(c \ {¬l}, Φ);
+       // eliminate clauses not in normal form:
+       for every clause c in Φ that contains both a literal l and its negation ¬l do
+           Φ ← remove-from-formula(c, Φ);
+       // pure literal elimination:
+       while there is a literal l all of which occurrences in Φ have the same polarity do
+           for every clause c in Φ that contains l do
+              Φ ← remove-from-formula(c, Φ);
+       // stopping conditions:
+       if Φ is empty then
+           return true;
+       if Φ contains an empty clause then
+           return false;
+       // Davis-Putnam procedure:
+       pick a literal l that occurs with both polarities in Φ
+       for every clause c in Φ containing l and every clause n in Φ containing its negation ¬l do
+           // resolve c with n:
+           r ← (c \ {l}) ∪ (n \ {¬l});
+           Φ ← add-to-formula(r, Φ);
+       for every clause c that contains l or ¬l do
+           Φ ← remove-from-formula(c, Φ);        
+ "←" denotes assignment. For instance, "largest ← item" means that the value of largest changes to the value of item. "return" terminates the algorithm and outputs the following value. At each step of the SAT solver, the intermediate formula generated is equisatisfiable, but possibly not equivalent, to the original formula. The resolution step leads to a worst-case exponential blow-up in the size of the formula. The Davis–Putnam–Logemann–Loveland algorithm is a 1962 refinement of the propositional satisfiability step of the Davis–Putnam procedure which requires only a linear amount of memory in the worst case. It eschews the resolution for the splitting rule: a backtracking algorithm that chooses a literal l, and then recursively checks if a simplified formula with l assigned a true value is satisfiable or if a simplified formula with l assigned false is. It still forms the basis for today's (as of 2015) most efficient complete SAT solvers. See also[edit] Herbrandization References[edit] Davis, Martin; Putnam, Hilary (1960). "A Computing Procedure for Quantification Theory". Journal of the ACM. 7 (3): 201–215. doi:10.1145/321033.321034. Davis, Martin; Logemann, George; Loveland, Donald (1962). "A Machine Program for Theorem Proving". Communications of the ACM. 5 (7): 394–397. doi:10.1145/368273.368557. hdl:2027/mdp.39015095248095. R. Dechter; I. Rish. "Directional Resolution: The Davis–Putnam Procedure, Revisited". In J. Doyle and E. Sandewall and P. Torasso (ed.). Principles of Knowledge Representation and Reasoning: Proc. of the Fourth International Conference (KR'94). Kaufmann. pp. 134–145. John Harrison (2009). Handbook of practical logic and automated reasoning. Cambridge University Press. pp. 79–90. ISBN 978-0-521-89957-4. This formal methods-related article is a stub. You can help Wikipedia by expanding it. v t e contentType 24 text/html; charset=UTF-8 url 64 https://en.wikipedia.org:443/wiki/Davis%E2%80%93Putnam_algorithm responseCode 3 200 
