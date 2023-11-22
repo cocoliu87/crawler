@@ -1,0 +1,64 @@
+flame_workers: &flame_workers
+  hosts:
+    flame_worker1:
+      ansible_host: 167.71.85.190
+      port: 9001
+    flame_worker2:
+      ansible_host: 167.71.93.193
+      port: 9002
+    flame_worker3:
+      ansible_host: 167.71.93.172
+      port: 9003
+    flame_worker4:
+      ansible_host: 45.55.196.190
+      port: 9004
+    flame_worker5:
+      ansible_host: 159.203.117.109
+      port: 9005
+  vars:
+    flame_coordinator_ip: 157.245.211.10
+    flame_coordinator_port: 9000
+
+kvs_workers: &kvs_workers
+  hosts:
+    kvs_worker1:
+      ansible_host: 159.203.121.117
+    kvs_worker2:
+      ansible_host: 209.97.149.86
+    kvs_worker3:
+      ansible_host: 134.209.174.36
+  vars:
+    kvs_coordinator_ip: 157.245.211.10
+    kvs_coordinator_port: 8000
+
+kvs_coordinators: &kvs_coordinators
+  hosts:
+    kvs_coordinator:
+      ansible_host: 157.245.211.10
+  vars:
+    kvs_coordinator_port: 8000
+
+
+flame_coordinators: &flame_coordinators
+  hosts:
+    flame_coordinator:
+      ansible_host: 157.245.211.10
+  vars:
+    kvs_coordinator_ip: 157.245.211.10
+    kvs_coordinator_port: 8000
+
+frontend: &frontend
+  hosts:
+    ubercrawl_frontend:
+      ansible_host: 165.227.68.5
+
+flame_servers: &flame_servers
+  <<: *kvs_coordinators
+  <<: *flame_coordinators
+  <<: *flame_workers
+  <<: *kvs_workers
+
+
+all_servers:
+  <<: *flame_servers
+  <<: *frontend

@@ -1,0 +1,8 @@
+---
+- name: Start KVS Coordinators
+  hosts: kvs_coordinator
+
+  tasks:
+    # Start KVS Coordinator
+    - name: Start KVS Coordinator
+      shell: "docker-compose -f 23fa-CIS5550-ubercrawl/aws/aws.kvs.coordinator.yaml up -d"

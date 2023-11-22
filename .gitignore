@@ -66,6 +66,7 @@ local.properties
 ## NetBeans
 ##############################
 nbproject/private/
+bin/
 build/
 nbbuild/
 dist/
@@ -83,3 +84,12 @@ nb-configuration.xml
 ## OS X
 ##############################
 .DS_Store
+
+
+##
+## DOCKER DATA
+##
+data/
+cert/
+out/
+worker*

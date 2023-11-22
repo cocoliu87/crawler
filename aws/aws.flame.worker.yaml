@@ -1,0 +1,9 @@
+version: '3.4'
+
+services:
+  flame_worker:
+    image: sergiogcx/ubercrawl_base:main
+    ports:
+      - "${FLAME_WORKER_PORT}:${FLAME_WORKER_PORT}"
+    restart: unless-stopped
+    command: [ "java", "-cp", "/java/lib/*", "cis5550.flame.Worker", "${FLAME_WORKER_PORT}", "${FLAME_SERVER_HOST}:${FLAME_SERVER_PORT}" ]

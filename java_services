@@ -2,7 +2,7 @@
 
 set -o errexit;
 
-JAVA_COMMAND="java -cp ubercrawl/lib/kvs.jar:ubercrawl/lib/webserver.jar:ubercrawl/lib/flame.jar:ubercrawl.jar";
+JAVA_COMMAND="java -cp ubercrawl/lib/flame.jar:ubercrawl/lib/kvs.jar:ubercrawl/lib/jsoup-1.16.2.jar:ubercrawl/lib/webserver.jar:ubercrawl/lib/ubercrawl.jar";
 
 function __clear_garbage() {
     echo "Clearing garbage...";
@@ -15,7 +15,7 @@ function __ubercrawl_start_kvs() {
     echo "Starting cis5550.kvs.Coordinator";
     $JAVA_COMMAND cis5550.kvs.Coordinator 8000&
     sleep 1;
-    echo "Starting: cis5550.kvs.Worker";
+    echo "Starting: cis5550.kvs.Worker (1)";
     $JAVA_COMMAND cis5550.kvs.Worker 8001 worker1 localhost:8000 &
     sleep 1;
 }
@@ -30,6 +30,21 @@ function __ubercrawl_start_flame() {
     echo "Starting: cis5550.flame.Worker (2)";
     $JAVA_COMMAND cis5550.flame.Worker 9002 localhost:9000 &
     sleep 1;
+    echo "Starting: cis5550.flame.Worker (3)";
+    $JAVA_COMMAND cis5550.flame.Worker 9003 localhost:9000 &
+    sleep 1;
+}
+
+function __ubercrawl_start_api() {
+    echo "Starting: cis5550.api.SearchAPI";
+    $JAVA_COMMAND cis5550.api.SearchAPI 8081 ubercrawl/static/MockData.json &
+    sleep 1;
+}
+
+function start_api() {
+    stop;
+    build;
+    __ubercrawl_start_api;
 }
 
 
@@ -60,6 +75,7 @@ function __ubercrawl_restart() {
 function start() {
     __ubercrawl_start_kvs;
     __ubercrawl_start_flame;
+    __ubercrawl_start_api;
 }
 
 function stop() {
@@ -70,19 +86,34 @@ function restart() {
     __ubercrawl_restart;
 }
 
+function build() {
+    find ./ubercrawl/src -type f -name "*.java" -exec javac -classpath "./ubercrawl/lib/*:./src" -d ./ubercrawl/build '{}' +
+    jar cvf ./ubercrawl.jar -C ./ubercrawl/build .;
+    mv ./ubercrawl.jar ubercrawl/lib;
+}
+
+function runCrawl() {
+  $JAVA_COMMAND \
+    cis5550.flame.FlameSubmit \
+    localhost:9000 \
+    ubercrawl/lib/ubercrawl.jar \
+    cis5550.jobs.Crawler seed https://en.wikipedia.org/wiki/Main_Page
+}
+
+
 function runIndexer() {
   $JAVA_COMMAND \
-      cis5550.flame.FlameSubmit \
-      localhost:9000 \
-      ubercrawl/jobs/Indexer/Indexer.jar \
+    cis5550.flame.FlameSubmit \
+    localhost:9000 \
+    ubercrawl/lib/ubercrawl.jar \
       cis5550.jobs.Indexer;
 }
 
 function runPageRank() {
   $JAVA_COMMAND \
-      cis5550.flame.FlameSubmit \
-      localhost:9000 \
-      ubercrawl/jobs/PageRank/PageRank.jar \
+    cis5550.flame.FlameSubmit \
+    localhost:9000 \
+    ubercrawl/lib/ubercrawl.jar \
       cis5550.jobs.PageRank;
 }
 

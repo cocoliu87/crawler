@@ -1,0 +1,130 @@
+smrepijsmkbgeguiimnmhqispmwkhapmkgjodgks length 6 415766 page 10003 Brief guide to Wikipedia formatting codes About Wikipedia Administration FAQ Contributing Tips Tasks Tutorial Help menu Directories Cheatsheet Asking questions Help desk Reference desk Teahouse For a complete list of wikitext codes, see Help:Wikitext. For information on special words, see Help:Magic words. Shortcuts H:CS H:CHEAT WP:CHEAT WP:CHEATSHEET Wikitext cheatsheet Works anywhere in the text Description You type You get Italics, bold, and both ''italics'', '''bold''', and '''''both''''' italics, bold, and both Link to another page see Help:Interwikimedia links for linking to sister projects [[copy edit]] [[copy edit]]ors copy edit copy editors "Pipe" a link to change the link's text [[Android (operating system)|Android]] Android Link to a section [[Frog#Locomotion]] [[Frog#Locomotion|locomotion in frogs]] {{slink|Frog#Locomotion}} Frog#Locomotion locomotion in frogs Frog § Locomotion Red link Links to pages that don't exist are automatically red. Red links in articles often help by showing desired redirects or notable pages. [[Red link example]] Red link example Plain website https://www.wikipedia.org https://www.wikipedia.org Link a website [https://www.wikipedia.org] [1] Link and name a website [https://www.wikipedia.org/ Wikipedia] Wikipedia Citations, references, and footnotes sources in the article will appear where {{reflist}} is put, typically under a level 2 section heading (see below) towards the bottom of the page; text between {{}} is for a template. Hello<ref name="LoC">[https://www.loc.gov/about/ Library of Congress]</ref> World!<ref>{{cite web |url=https://www.w3.org/ |title = World Wide Web Consortium (W3C)}}</ref>
+
+Hello again!<ref name="LoC" /><ref>Perry's Handbook, Sixth Edition, McGraw-Hill Co., 1984.</ref>
+
+References: {{reflist}}
+ Hello[1] World![2] Hello again![1][3] References: ^ a b Library of Congress ^ "World Wide Web Consortium (W3C)". ^ Perry's Handbook, Sixth Edition, McGraw-Hill Co., 1984. Template:Citation needed one of many cleanup templates This statement is true.{{cn}} This statement is true.[citation needed] Signature sign your contributions when posting to a talk page ~~~~ do not sign in an article, only on talk pages Username (talk) 21:33, 20 November 2023 (UTC) Ping a user on a talk page so they will see your comment [[User:Example]] or {{u|Example}} User:Example or Example Strike your talk page comment to show your previous comment is outdated <s>This topic isn't [[WP:N|notable]].</s> This topic isn't notable. Underline your text <u>This topic is notable</u> This topic is notable Hide comment(s) somewhere for editors; hidden comments are visible only in the source editor consensus is how things are decided <!--This had consensus, discuss at talk page--> Show an image for uploading, see the intro to uploading images [[File:Wiki.png|thumb|Caption]] Caption Add a page to a category [[Category:Category name]] place near the bottom of a page shows "Category name" in a bar at bottom when the page is previewed or published Link to a category or file [[:Category:Category name]] [[:File:File name]] Category:Wikipedia basic information File:Example.jpg Works only at the beginning of lines Description You type You get Redirect to another page redirects must be placed at the start of the first line #REDIRECT [[Target page]] Target page Redirect to a section of another page #REDIRECT [[Target page#anchorName]] Target page#anchorName Section headings a Table of Contents will automatically be generated when four headings are added to an article ==Level 2== ===Level 3=== ====Level 4==== =====Level 5===== ======Level 6====== do not use =Level 1= as it is for page titles Level 2 Level 3 Level 4 Level 5 Level 6 Bulleted list * One * Two ** Two point one * Three One Two Two point one Three Numbered list # One # Two ## Two point one # Three One Two Two point one Three Indenting text this is used when replying on a talk page, to make it easier to follow conversations. After a string of indents, or to revive a discussion, an outdent {{Outdent|n}} (Template:Outdent) can be used to reset the paragraph to the left margin. no indent (normal) :first indent ::second indent :::third indent ::::fourth indent {{Outdent|4}} return to left margin no indent (normal) first indent second indent third indent fourth indent return to left margin v t e Quick templates Images [[File: | thumb | upright | right | alt= | caption ]]
+ Cite web <ref>{{cite web
+ |url= 
+ |title= 
+ |author= 
+ |date= 
+ |website= 
+ |publisher= 
+ |access-date= 
+}}</ref>
+ Cite journal <ref>{{cite journal
+ |last1= 
+ |first1= 
+ |last2= 
+ |first2= 
+ |date= 
+ |title= 
+ |journal= 
+ |volume= 
+ |issue= 
+ |pages= 
+ |publisher= 
+ |doi= 
+ |url= 
+ |access-date= 
+}}</ref>
+ Cite book (short) <ref>{{cite book
+ |last= 
+ |first= 
+ |author-link= 
+ |title= 
+ |publisher= 
+ |series= 
+ |date=  
+ |doi= 
+ |isbn= 
+}}</ref>
+ Cite book (extended) <ref>{{cite book
+ |last1        = 
+ |first1       = 
+ |last2        = 
+ |first2       = 
+ |author-link1 = 
+ |author-link2 = 
+ |editor       = 
+ |title        = 
+ |trans-title  = 
+ |url          = 
+ |access-date  = 
+ |edition      = 
+ |series       = 
+ |volume       = 
+ |date         = 
+ |publisher    = 
+ |location     = 
+ |isbn         = 
+ |doi          = 
+ |page         = 
+ |pages        = 
+ |chapter      = 
+}}</ref>
+ Metric conversions Single input: {{convert|original_value|original_unit|conversion_unit|abbr=on}}
+ Range of values: {{convert|orig_val1|range|orig_val2|original_unit|conversion_unit|abbr=on}}
+ Examples: {{convert|60|and|170|kg|lb|abbr=on}}
+{{convert|18|°C|°F}}
+{{convert|3.21|kg|lb}}
+ Variables Code Effect {{CURRENTWEEK}} 47 {{CURRENTDOW}} 1 {{CURRENTMONTH}} 11 {{CURRENTMONTHNAME}} November {{CURRENTMONTHNAMEGEN}} November {{CURRENTDAY}} 20 {{CURRENTDAYNAME}} Monday {{CURRENTYEAR}} 2023 {{CURRENTTIME}} 21:33 {{NUMBEROFARTICLES}} 6,748,129 {{NUMBEROFPAGES}} 59,424,139 {{NUMBEROFUSERS}} 46,509,745 {{PAGENAME}} Cheatsheet {{NAMESPACE}} Help {{REVISIONID}} - {{REVISIONUSER}} CrafterNova {{localurl:pagename}} /wiki/Pagename {{localurl:Wikipedia:Sandbox|action=edit}} /w/index.php?title=Wikipedia:Sandbox&action=edit {{fullurl:pagename}} //en.wikipedia.org/wiki/Pagename {{fullurl:pagename|query_string}} //en.wikipedia.org/w/index.php?title=Pagename&query_string {{SERVER}} //en.wikipedia.org {{ns:index}} e.g. '{{ns:1}}' fullname of namespace e.g 'Talk' {{SITENAME}} Wikipedia Recalling named reference <ref name="NAMEOFREF" />
+ Quotes {{blockquote |text= |sign= }}
+ Blockquotes <blockquote>
+<p>QUOTED PARAGRAPH</p>
+<p>NAME, SOURCE, REFERENCE</p>
+</blockquote>
+ About (This page is about USE1. For other uses, see About (disambiguation).) {{About|USE1}}
+ (This page is about USE1. For other uses, see PAGE2.) {{About|USE1||PAGE2}}
+ (This page is about USE1. For USE2, see PAGE2.) {{About|USE1|USE2|PAGE2}}
+ (This page is about USE1. For USE2, see PAGE2. For USE3, see PAGE3. For USE4, see PAGE4. For USE5, see PAGE5.) {{About|USE1|USE2|PAGE2|USE3|PAGE3|USE4|PAGE4|USE5|PAGE5}}
+ Tables (borderless) {|
+|-
+! scope="col" |COLUMN1
+! scope="col" |COLUMN2
+|-
+|ROW1
+|ROW1/COL2
+|-
+|ROW2
+|ROW2/COL2
+|}
+ Tables (wikitable) {| class="wikitable"
+|-
+! scope="col" |COLUMN1
+! scope="col" |COLUMN2
+|-
+|ROW1
+|ROW1/COL2
+|-
+|ROW2
+|ROW2/COL2
+|}
+ Collapsible tables (Default: collapsed) {| class="wikitable mw-collapsible mw-collapsed" style="text-align: left;margin:0px;"
+|- 
+! style="width:20em;" |COLUMN1
+! style="width:20em;" |COLUMN2
+|- 
+|ROW1
+|ROW1/COL2
+|-
+|ROW2
+|ROW2/COL2
+|-
+|}
+ Columns {{col-begin|width=100%}}
+{{col-break|width=}} 
+{{col-end}}
+ Interwiki links Wiki Shortcut Wikimedia Commons [[commons:]] Wikipedia [[w:]] Wiktionary [[wikt:]] Wikibooks [[b:]] Wikisource [[s:]] Wikispecies [[species:]] Metawiki [[m:]] MediaWiki [[mw:]] Vandalism response templates  * {{subst:uw-vandalism1|PageName}} ~~~~ (unintentional vandalism/test)
+ * {{subst:uw-delete1|PageName}} ~~~~ (unintentional removal of content)
+ * {{subst:uw-vandalism2|PageName}} ~~~~ (suitable for intentional nonsense or disruption)
+ * {{subst:uw-delete2|PageName}} ~~~~ (variant for removal of content)
+ * {{subst:uw-vandalism3|PageName}} ~~~~ ("please stop" for use after level 2 warning)
+ * {{subst:uw-delete3|PageName}} ~~~~ (please stop removing content)
+ * {{subst:uw-vandalism4|PageName}} ~~~~ (last warning for vandalism)
+ * {{subst:uw-delete4|PageName}} ~~~~ (last warning for removing content)
+ * {{subst:uw-vandalism4im|PageName}} ~~~~ (only warning; for severe or grotesque vandalism only)
+ * {{subst:uw-delete4im|PageName}} ~~~~ (only warning; for many blankings in a short period of time)
+ Page citations {{rp|page=}}
+ See also Note: You can use the sandbox to experiment with page editing. Wiki markup quick reference (PDF download) For a full list of editing commands, see Help:Wikitext For including parser functions, variables and behavior switches, see Help:Magic words For a guide to displaying mathematical equations and formulas, see Help:Displaying a formula For a guide to editing, see Wikipedia:Contributing to Wikipedia For an overview of commonly used style guidelines, see Wikipedia:Simplified Manual of Style For a page on how to use Wikipedia in bite-sized morsels, see Wikipedia:Tips For advice on writing style and formatting in a bullet-point format, see Wikipedia:Styletips For summaries of some Wikipedia protocols and conventions, see Wikipedia:Dos and don'ts If you don't want to use wikitext markup, try Wikipedia:VisualEditor instead To ask a question, see Wikipedia:Questions to locate the appropriate venue(s) Find this page confusing? Just use this link to ask for help on your talk page; a volunteer will visit you there shortly! v t e Wikipedia editor navigation v t e Wikipedia key policies and guidelines (?) Five pillars Ignore all rules Content (?) P Verifiability No original research Neutral point of view What Wikipedia is not Biographies of living persons Copyright (Copyright violations) Image use Article titles G Notability Autobiography Citing sources Reliable sources M contentType 24 text/html; charset=UTF-8 url 54 https://en.wikipedia.org:443/wiki/Wikipedia:Cheatsheet responseCode 3 200 

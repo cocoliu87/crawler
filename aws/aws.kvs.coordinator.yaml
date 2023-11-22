@@ -1,0 +1,12 @@
+version: '3.4'
+
+services:
+  kvs_coordinator:
+    image: sergiogcx/ubercrawl_base:main
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data/coordinator:/app
+    restart: unless-stopped
+    command: [ "java", "-cp", "/java/lib/*", "cis5550.kvs.Coordinator", "8000"]
+

@@ -4,6 +4,7 @@ data
 examples
 lib-testing
 src/cis5550/test
+out/
 
 .classpath
 .project

@@ -1,0 +1,20 @@
+---
+- name: Restart Frontend
+  hosts: frontend
+
+  tasks:
+    # Stop the flame workers
+    - name: Stop frontend
+      shell: "docker-compose -f 23fa-CIS5550-ubercrawl/aws/aws.frontend.yaml down"
+
+    # Pull latest images
+    - name: Pull repo
+      shell: "/usr/bin/bash /home/ubercrawl/23fa-CIS5550-ubercrawl/gitpull.sh"
+
+    # Pull latest images
+    - name: Pull images
+      shell: "/usr/bin/bash /home/ubercrawl/23fa-CIS5550-ubercrawl/dockerpull.sh"
+
+    # Start frontend
+    - name: Start frontend
+      shell: "docker-compose -f 23fa-CIS5550-ubercrawl/aws/aws.frontend.yaml up -d"

@@ -54,14 +54,8 @@ function start() {
         echo -e "\nReact build now running on http://localhost:8080  (it might take a minute to boot)";
         echo -e "To stop: ./uc stop frontend-build";
       ;;
-      "coordinator")
-        docker-compose -f compose.coordinator.yaml up -d;
-      ;;
-      "worker")
-        docker-compose -f compose.coordinator.yaml up -d;
-      ;;
-      "nginx")
-        docker-compose -f compose.nginx.yaml up -d;
+      "local_stack")
+        docker-compose -f ubercrawl.local.yaml up -d;
       ;;
       *)
         echo "Invalid option ${APPLY_MODE}";
@@ -75,19 +69,13 @@ function stop() {
 
     case "${SERVICE_MODE}" in
       "frontend")
-        docker-compose -f compose.frontend.dev.yaml  down --volumes --remove-orphans;
+        docker-compose -f compose.frontend.dev.yaml down --volumes --remove-orphans;
       ;;
       "frontend-build")
-        docker-compose -f compose.frontend.yaml  down --volumes --remove-orphans;
+        docker-compose -f compose.frontend.yaml down --volumes --remove-orphans;
       ;;
-      "coordinator")
-        docker-compose -f compose.coordinator.yaml  down --volumes --remove-orphans;
-      ;;
-      "worker")
-        docker-compose -f compose.coordinator.yaml  down --volumes --remove-orphans;
-      ;;
-      "nginx")
-        docker-compose -f compose.nginx.yaml  down --volumes --remove-orphans;
+      "local_stack")
+        docker-compose -f ubercrawl.local.yaml down --volumes --remove-orphans;
       ;;
       *)
         echo "Invalid option ${APPLY_MODE}";
@@ -100,7 +88,6 @@ function stop() {
 # Stops the cluster and removes any created volumes
 #
 function clean() {
-#  docker-compose -f local.compose.yml down --volumes --remove-orphans;
   echo "Cleaning";
 }
 
@@ -143,13 +130,21 @@ function restart() {
   start;
 }
 
-function build_images {
+
+function build_java_images {
     echo "Building base image"
     docker build -f ubercrawl/docker/ubercrawl.base.dockerfile ./ubercrawl -t sergiogcx/ubercrawl_base:main
 
+}
 
-    echo "Building front-end image"
-    docker build -f ./frontend/docker/frontend-build.dockerfile frontend -t sergiogcx/ubercrawl_frontend:main
+function build_frontend_image {
+  echo "Building front-end image"
+      docker build -f ./frontend/docker/frontend-build.dockerfile frontend -t sergiogcx/ubercrawl_frontend:main
+}
+
+function build_images {
+    build_java_images;
+    build_frontend_image;
 }
 
 
