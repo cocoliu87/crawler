@@ -1,82 +1,64 @@
-import cis5550.flame.FlameContext;
-import cis5550.kvs.KVSClient;
-import cis5550.kvs.Row;
+package cis5550.jobs;
 
-import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.Iterator;
+import cis5550.external.PorterStemmer;
+import cis5550.flame.*;
+
+import java.util.*;
 
 public class Indexer {
-	public static void run(FlameContext ctx, String[] args) throws Exception {
-		KVSClient kvs = ctx.getKVS();
-
-		// Iterate through workers and fetch data for each row individually
-		for (int i = 0; i < kvs.numWorkers(); i++) {
-			String workerAddress = kvs.getWorkerAddress(i);
-
-			// Fetch rows from pt-crawl table for the current worker
-			String tableName = "pt-crawl";
-			Iterator<Row> rowIterator = fetchRowsFromWorker(kvs, tableName, workerAddress);
-
-			// Process rows and perform indexing
-			while (rowIterator.hasNext()) {
-				Row row = rowIterator.next();
-				String url = row.get("url");
-				String page = row.get("page");
-
-				// Normalize the page content
-				page = page.replaceAll("<.*?>", "").replaceAll("[.,:;!?’\"()-]", "").toLowerCase();
-				HashSet<String> uniqueWords = new HashSet<>(Arrays.asList(page.split("\\s+")));
-
-				// Insert (word, url) pairs into pt-index
-				for (String word : uniqueWords) {
-					// Normalize the word and remove whitespace
-					word = word.replaceAll(" ", "");
-
-					// Skip short words
-					if (word.length() <= 2) continue;
-
-					// Fetch the current index value for the word
-					byte[] currentValueBytes = kvs.get("pt-index", word, "url");
-					String currentValue = currentValueBytes == null ? "" : new String(currentValueBytes, StandardCharsets.UTF_8);
-
-					// Append the new URL to the existing value if it's not already included
-					String newValue = currentValue.contains(url) ? currentValue : currentValue + (currentValue.isEmpty() ? "" : ",") + url;
-					kvs.put("pt-index", word, "url", newValue.getBytes(StandardCharsets.UTF_8));
-				}
+	static final String tableName = "pt-crawl", indexerTableName = "pt-index";
+	public static void run(cis5550.flame.FlameContext ctx, String[] args) throws Exception {
+		FlameRDD rdd = ctx.fromTable(tableName, row -> row.get("url") + "@" + row.get("page"));
+		FlamePairRDD pRdd = rdd.mapToPair(s -> {
+			int idx = s.indexOf('@');
+			return new FlamePair(s.substring(0, idx), s.substring(idx+1));
+		}).flatMapToPair(p -> {
+			String page = p._2();
+			String url = p._1();
+			page = removeAllSpecialCharacters(page);
+			Set<String> words = new HashSet<>(Arrays.asList(page.split("\\W+")));
+			List<FlamePair> pairs = new ArrayList<>();
+			Map<String, List<String>> wordPosMap = posWord(page);
+			for (String word: words) {
+				String posUrl = url + ":" + String.join(" ", wordPosMap.get(word));
+//                System.out.println(word + "\n" + posUrl);
+				pairs.add(new FlamePair(word, posUrl));
+				pairs.add(new FlamePair(stemWord(word), posUrl));
 			}
-		}
-
-		// After saving the pt-index table, fetch and print its content
-		printIndexTableContent(kvs);
+			return pairs;
+		}).foldByKey("", (s1, s2) -> s1 + (s1.isEmpty()? "":",") + s2);
+		pRdd.saveAsTable(indexerTableName);
 	}
 
-	private static Iterator<Row> fetchRowsFromWorker(KVSClient kvs, String tableName, String workerAddress) {
-		try {
-			// Modified to pass the workerAddress if necessary
-			return kvs.scan(tableName, workerAddress, null);
-		} catch (IOException e) {
-			// Handle the exception (e.g., log the error)
-			e.printStackTrace();
-			return Collections.emptyIterator();
-		}
+	public static String removeAllSpecialCharacters(String page) {
+		// replaceAll("\<.*?\>", "")
+		return page.replaceAll("<[^>]*>", "")
+				.replaceAll("\\p{Punct}", "")
+				.toLowerCase();
 	}
 
-	private static void printIndexTableContent(KVSClient kvs) {
-		try {
-			Iterator<Row> indexTableIterator = kvs.scan("pt-index", null, null);
-			System.out.println("Content of pt-index table:");
-			while (indexTableIterator.hasNext()) {
-				Row indexRow = indexTableIterator.next();
-				String key = indexRow.key();
-				String value = indexRow.columns().iterator().next(); // Assuming there's only one column per row
-				System.out.println(key + " => " + value);
+	public static Map<String, List<String>> posWord(String page) {
+		Map<String, List<String>> map = new HashMap<>();
+		String[] strs = page.split("\\W+");
+		for (int i = 0; i < strs.length; i++) {
+			String word = strs[i];
+			if (map.containsKey(word)) continue;
+			map.computeIfAbsent(word, k -> new ArrayList<>()).add(String.valueOf(i+1));
+			for (int j = i+1; j < strs.length; j++) {
+				if (strs[j].equals(word)) map.get(word).add(String.valueOf(j+1));
 			}
-		} catch (IOException e) {
-			e.printStackTrace();
 		}
+		return map;
+	}
+
+	public static String stemWord(String word) {
+		PorterStemmer s = new PorterStemmer();
+		for (char ch: word.toCharArray()) {
+			if (Character.isLetter(ch)) {
+				s.add(ch);
+			}
+		}
+		s.stem();
+		return s.toString();
 	}
 }

@@ -1,193 +1,170 @@
 package cis5550.jobs;
 
-import java.util.*;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-
-import cis5550.flame.FlameContext;
 import cis5550.flame.FlamePair;
 import cis5550.flame.FlamePairRDD;
+import cis5550.flame.FlameRDD;
 import cis5550.kvs.KVSClient;
+import cis5550.kvs.Row;
 import cis5550.tools.Hasher;
 import cis5550.tools.URLParser;
 
-public class PageRank {
-	public static String normalize(String s, String base) {
-		if (s.indexOf("#") != -1) {
-			s = s.substring(0, s.indexOf("#"));
-		}
-		if (s.endsWith(".jpg") || s.endsWith(".jpeg") || s.endsWith(".gif") || s.endsWith(".png") || s.endsWith(".txt"))
-		if (s.equals("")) {
-			return base;
-		}
-		String[] parse1 = URLParser.parseURL(s);
-		String[] parse2 = URLParser.parseURL(base);
-		String protocal1 = parse1[0];
-		String host1 = parse1[1];
-		String port1 = parse1[2];
-		String whole1 = parse1[3];
-		String protocal2 = parse2[0];
-		String host2 = parse2[1];
-		String port2 = parse2[2];
-		String whole2 = parse2[3];
-		String ret = "";
+import javax.swing.text.MutableAttributeSet;
+import javax.swing.text.html.HTML;
+import javax.swing.text.html.HTMLEditorKit;
+import javax.swing.text.html.parser.ParserDelegator;
+import java.io.IOException;
+import java.io.Reader;
+import java.io.StringReader;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 
-		if (protocal1 != null){
-			if (protocal1.equals("http") || protocal1.equals("https")) {
-				ret += protocal1 + ":";
-			} else {
-				System.out.println("something wrong1, base: "+base+", new_uri: "+s);
-				return "";
+public class PageRank {
+	static final String tableName = "pt-crawl", rankTableName = "pt-pageranks", delimiter = ",";
+	static final double decayFactor = 0.85;
+	public static void run(cis5550.flame.FlameContext ctx, String[] args) throws Exception {
+		double convergence = 0.1;
+		int totalProcessed = 0;
+		AtomicInteger converged = new AtomicInteger();
+		double cutoff = -1;
+
+		if (args.length > 0) {
+			try {
+				convergence = Double.parseDouble(args[0]);
+				if (args.length == 2) cutoff = Double.parseDouble(args[1]);
+			} catch (Exception ignored) {
 			}
-		} else if (protocal2 != null) {
-			if (protocal2.equals("http") || protocal2.equals("https")) {
-				ret += protocal2 + ":";
+		}
+		FlameRDD rdd = ctx.fromTable(tableName, row -> row.get("url") + "@" + row.get("page"));
+		FlamePairRDD state = rdd.mapToPair(s -> {
+			int idx = s.indexOf('@');
+			String url = s.substring(0, idx);
+			String page = s.substring(idx + 1);
+			List<String> links = processUrls(getAllUrls(page), url);
+			List<String> hashedLinks = new ArrayList<>();
+			for (String link: links) hashedLinks.add(Hasher.hash(link));
+			return new FlamePair(Hasher.hash(url), "1.0,1.0," + String.join(delimiter, hashedLinks));
+		});
+		while (true) {
+			// Compute and aggregate transfer table
+			FlamePairRDD transfer = state.flatMapToPair(p -> {
+				List<FlamePair> pairs = new ArrayList<>();
+				String[] values = p._2().split(delimiter);
+				double cRank = Double.parseDouble(values[0].strip());
+				double n =values.length - 2;
+				for (int i = 2; i < values.length; i++) {
+					pairs.add(new FlamePair(values[i], String.valueOf(cRank * decayFactor / n)));
+				}
+				// You may want to additionally send rank 0.0 from each vertex to itself,
+				// to prevent vertexes with indegree zero from disappearing during the join later on.
+				pairs.add(new FlamePair(p._1(), "0.0"));
+//                System.out.println(Arrays.toString(pairs.toArray()));
+				return pairs;
+			}).foldByKey("0", (a, b) -> "" + (Double.parseDouble(a) + Double.parseDouble(b)));
+
+			// Join state and transfer tables
+			state = state.join(transfer).flatMapToPair(p -> {
+				List<FlamePair> pairs = new ArrayList<>();
+				String[] values = p._2().split(delimiter);
+				int len = values.length;
+				// This is also a good opportunity to add the 0.15 from the rank source.
+				values[1] = values[0];
+				values[0] = String.valueOf(Double.parseDouble(values[len - 1]) + 0.15);
+				values = Arrays.copyOf(values, values.length-1);
+				pairs.add(new FlamePair(p._1(), String.join(delimiter, values)));
+				return pairs;
+			});
+
+			totalProcessed++;
+
+			// calculate the convergence
+			double finalConvergence = convergence;
+			String max = state.flatMap(p -> {
+				String[] values = p._2().split(delimiter);
+				double diff = Math.abs(Double.parseDouble(values[0]) - Double.parseDouble(values[1]));
+				if (diff < finalConvergence) converged.getAndIncrement();
+				return List.of(new String[]{String.valueOf(diff)});
+			}).fold("0", (s1, s2) -> Double.parseDouble(s1) >= Double.parseDouble(s2)? s1 : s2);
+
+			// if meet the requirement, quit the loop
+			if (Double.parseDouble(max) < convergence) break;
+			else if (cutoff >= 0 && (double) (converged.get() / totalProcessed) * 100 >= cutoff) break;
+		}
+
+
+		state.flatMapToPair(p -> {
+			KVSClient client = ctx.getKVS();
+			Row r = new Row(p._1());
+			r.put("rank", p._2().strip().split(delimiter)[0]);
+			client.putRow(rankTableName, r);
+			return List.of();
+		});
+	}
+
+	public static List<String> processUrls(List<String> urls, String host) {
+		List<String> processed = new ArrayList<>();
+
+		String[] hosts = URLParser.parseURL(host);
+		String protocol = hosts[0].toLowerCase(), hostName = hosts[1].toLowerCase(), port = hosts[2], subDomains = hosts[3];
+		if (protocol.equals("http") && port == null) port = "80";
+		else if (protocol.equals("https") && port == null) port = "443";
+
+		for (String url: urls) {
+			if (url.startsWith("http://") || url.startsWith("https://")) {
+				processed.add(url);
 			} else {
-				System.out.println("something wrong2, base: "+base+", new_uri: "+s);
-				return "";
-			}
-		} else {
-			System.out.println("something wrong3, base: "+base+", new_uri: "+s);
-			return "";
-		}
-		if (host1 != null) {
-			ret += "//" + host1;
-		} else if (host2 != null){
-			ret += "//" + host2;
-		} else {
-			System.out.println("something wrong, base: "+base+", new_uri: "+s);
-			return "";
-		}
-		if (port1 != null) {
-			ret += ":" + port1;
-		} else if (port2 != null){
-			ret += ":" + port2;
-		} else {
-			ret += ret.contains("https") ? ":443" : ":80";
-		}
-		if (whole1 == null) {
-			return base;
-		} else {
-			if (whole1.startsWith("/")) {
-				ret += whole1;
-			} else {
-				String[] tmp = (whole2.substring(0, whole2.lastIndexOf("/")) + "/" + whole1).split("/");
-				LinkedList<String> url_parts = new LinkedList<String>();
-				for (int i=0; i<tmp.length; i++) {
-					if (tmp[i].equals("")) {
+				StringBuilder newUrl = new StringBuilder(protocol).append("://").append(hostName).append(":").append(port);
+				if (url.contains("#")) {
+					url = url.split("#")[0];
+					if (url.isEmpty()) {
 						continue;
-					}
-					if (!tmp[i].equals("..")) {
-						url_parts.add(tmp[i]);
 					} else {
-						if (url_parts.size() == 0) {
-							return "";
-						}
-						url_parts.removeLast();
+						String[] domains = subDomains.split("/");
+						domains[domains.length-1] = url;
+						for (String d: domains) if (!d.isEmpty()) newUrl.append("/").append(d);
+					}
+				} else if (url.startsWith("/")) {
+					newUrl.append(url);
+				} else if (url.startsWith("..")) {
+					String[] domains = subDomains.split("/");
+					String[] strs = url.split("/");
+					int count = 0;
+					String p = strs[0];
+					while (p.equals("..")) {
+						count++;
+						p = strs[count];
+					}
+					for (int i = 0; i < domains.length-1-count; i++) {
+						if (!domains[i].isEmpty()) newUrl.append("/").append(domains[i]);
+					}
+					for (; count < strs.length; count++) {
+						if (!strs[count].isEmpty()) newUrl.append("/").append(strs[count]);
 					}
 				}
-				ret += "/" + String.join("/", url_parts);
+				processed.add(newUrl.toString());
 			}
+
 		}
-		return ret;
+		return processed;
 	}
 
-	public static List<String> find_url(String content) {
-		String regex = "<[aA](.*?)>";
-	    Pattern pattern = Pattern.compile(regex);
-	    LinkedList<String> list = new LinkedList<String>();
-	    Matcher matcher = pattern.matcher(content);
-	    LinkedList<String> ret = new LinkedList<String>();
-	    while (matcher.find()) {
-	    	String possible_groups = matcher.group(1);
-	    	for (String group: possible_groups.split(" ")) {
-	    		String[] group_list = group.replaceAll(" ", "").split("=");
-	    		if (group_list.length == 2 && group_list[0].equals("href")) {
-	    			ret.add(group_list[1].replaceAll("'", "").replaceAll("\"", ""));
-	    		}
-	    	}
-	    }
-	    return ret;
-	}
-	
-	public static void run(FlameContext ctx, String[] arr) {
-		ctx.output("in PageRank run");
-		Double threshold = 0.01;
-		if (arr.length != 0) {			
-			try {
-				threshold = Double.valueOf(arr[0]);				
-			} catch (Exception e) {
-				System.out.println("the first argument is not a double(threshold)");
-				e.printStackTrace();
-			}
-		}
-		try {
-			FlamePairRDD flame = ctx.fromTable("pt-crawl", r -> r.get("url") +","+r.get("page"))
-					.mapToPair(s -> {
-						int i = s.indexOf(",");
-						String page = s.substring(i+1);
-						String L = "";
-						for (String line: page.split("\n")) {
-							List<String> new_raw_urls = find_url(line);
-							for (String new_raw_url: new_raw_urls) {						
-								String new_url = normalize(new_raw_url, s.substring(0,i));
-								System.out.println(new_url+" "+ new_raw_url);
-								if (!new_raw_url.equals("") && !new_url.equals("")) {
-									L += (L.equals("")?"":",") + new_url;
-								}
-							}
-						}
-						return new FlamePair(s.substring(0,i), "1.0,1.0,"+L);
-					});
-
-			int j = 0;
-			while (true) {		
-				j+=1;
-				FlamePairRDD one_transfer = flame.flatMapToPair(p -> {
-					LinkedList<FlamePair> ret = new LinkedList<FlamePair>();
-					String url = p._1();
-					String[] to_urls =  p._2().split(",");
-					Set<String> set = new HashSet<String>(Arrays.asList(Arrays.copyOfRange(to_urls,2,to_urls.length)));
-					Double r_c = Double.valueOf(to_urls[0]);
-					Double r_p = Double.valueOf(to_urls[1]);
-					for (String l: set) {
-						ret.add(new FlamePair(l, String.valueOf(0.85*r_c/(set.size()))));
+	public static List<String> getAllUrls(String page) throws IOException {
+		List<String> links = new ArrayList<>();
+		Reader reader = new StringReader(page);
+		HTMLEditorKit.Parser parser = new ParserDelegator();
+		parser.parse(reader, new HTMLEditorKit.ParserCallback(){
+			public void handleStartTag(HTML.Tag t, MutableAttributeSet a, int pos) {
+				if (t == HTML.Tag.A) {
+					Object link = a.getAttribute(HTML.Attribute.HREF);
+					if (link != null) {
+						links.add(String.valueOf(link));
 					}
-					if (!set.contains(url)) {						
-						ret.add(new FlamePair(url, "0"));
-					}
-					return ret;
-				}).foldByKey("0", (s1,s2) -> String.valueOf(Double.valueOf(s1) + Double.valueOf(s2)));
-				flame = flame.join(one_transfer).flatMapToPair(p -> {
-					LinkedList<FlamePair> ret = new LinkedList<FlamePair>();
-					String[] values = p._2().split(",");
-					ret.add(new FlamePair(p._1(), 
-							String.valueOf(0.15+Double.valueOf(values[values.length-1]))+","
-									+values[0]+","+String.join(",",Arrays.copyOfRange(values,2,values.length-1))));
-					return ret;
-				});
-				String diff = flame.flatMap(p -> {
-					LinkedList<String> ret = new LinkedList<String>();
-					Double r_c = Double.valueOf(p._2().split(",")[0]);
-					Double r_p = Double.valueOf(p._2().split(",")[1]);
-					ret.add(String.valueOf(Math.abs(r_c - r_p)));
-					return ret;
-				}).fold("0", (s1,s2) -> String.valueOf(Math.max(Double.valueOf(s1),Double.valueOf(s2))));
-				System.out.println(diff);
-				System.out.println("------------\n");
-				if (Double.valueOf(diff) < threshold) break;
+				}
 			}
-			System.out.print("out of loop\n");
-			flame.flatMapToPair(p -> {
-				LinkedList<FlamePair> ret = new LinkedList<FlamePair>();
-				KVSClient kvs = ctx.getKVS();
+		}, true);
 
-				System.out.println("url: " + Hasher.hash(p._1()) + " | " + "2nd: " + p._2());
-				kvs.put("pt-pageranks", Hasher.hash(p._1()), "rank", p._2().split(",")[0]);
-				return ret;
-			});
-		} catch (Exception e) {
-			e.printStackTrace();
-		}
+		reader.close();
+		return links;
 	}
 }
