@@ -1,0 +1,133 @@
+ecxiceckbghmbmhmrklmocvahsjqsogkeqlgsaza length 5 59136 page 10012 Due to the move of the primary current events page from Current events to Portal:Current events and the advent of a new system that went into effect on July 12, 2006, the archival process for the page changed significantly. Please don't be alarmed by the length of this page; much of the page is just code to make the instructions clearer. The code used for transitioning July 2006 into August 2006 are used as case studies throughout. Daily[edit] Each day (during July 2006, for this example) when a new day/event is added, three pages get updated: Portal:Current events, Portal:Current events/July 2006, and Portal:Current events/Calendar: Each day, sub-pages of the portal are (automatically) transcluded into the main portal page so that only the previous six days plus the current UTC day are displayed. As a result, during July 31, 2006, part of the code for the primary portal page (Portal:Current events) would have looked like the following: <!-- unimportant code removed -->
+{{Portal:Current events/Inclusion|2006|07|31}}
+
+{{Portal:Current events/More events}}
+<!-- unimportant code removed -->
+ Similarly, the clickable calendar at Portal:Current events/Calendar is auto-updated daily (as of Sat. Feb 21 2009) to reflect the fact that only the corresponding previous seven days appear on the main portal page. During July 31, 2006, given that July 2006 ended on a Monday (in this format the second day of the week), part of the code (at that time) in Portal:Current events/Calendar looked like this: |-
+|23
+|24
+|'''[[#2006 July 25|25]]'''
+|'''[[#2006 July 26|26]]'''
+|'''[[#2006 July 27|27]]'''
+|'''[[#2006 July 28|28]]'''
+|'''[[#2006 July 29|29]]'''
+|-
+|'''[[#2006 July 30|30]]'''
+|'''[[#2006 July 31|31]]'''
+|
+|
+|
+|
+|
+|-
+ The clickable days auto-scroll the portal page to the requested entry. Periodically[edit] The events in the sidebar on the main portal page (at Portal:Current events/Sidebar) are normally updated quite frequently, but the events in the archived sidebar for the monthly pages (e.g. Portal:Current events/July 2006/Sidebar) should also be updated once in a while. This can be done daily, weekly, biweekly, monthly; whenever someone wants to get around to doing it. This essentially requires copying all of the (in this example, July) deaths from Portal:Current events/Sidebar to the appropriate monthly sidebar: (Portal:Current events/July 2006/Sidebar), and likewise doing the same with all of the events, holidays and observances, trials, ongoing armed conflicts, and elections, taking care not to include Recent events that actually took place during a prior month (in this case, June 2006). Monthly[edit] Since all the tasks that originally were accomplished at the end of the month under the old archival system are now usually completed at earlier points in the month, the monthly archiving between July 31, 2006 and August 1, 2006 entails only a small amount of work. Again, please do not be alarmed by the length of this section; much of it is code. Most of the "monthly" archival work is done on the first of the month, but a bit is also done on the first Saturday and around the seventh day of the month. On the first day[edit] Create a new month page at Portal:Current events/August 2006 with code similar to that in Portal:Current events/July 2006 (note that the new month - August - should appear in the code four times): {| style="background-color:transparent" cellspacing=0 cellpadding=0
+| style="vertical-align:top;" |
+{{Portal:Current events/Month Inclusion|2006 August}}
+|style="vertical-align:top;width:250px"|
+{{Portal:Current events/August 2006/Calendar}}
+{{Portal:Current events/August 2006/Sidebar}}
+|}
+{{Portal:Current events/Events by month}}
+
+[[Category:2006|August 2006]]
+ Copy the code from Portal:Current events/July 2006/Calendar to Portal:Current events/August 2006/Calendar and alter it such that the dates display correctly for August, not July (note that the first day of the week is Sunday), as follows. NOTE (2009): As a shortcut, locate the most recent month that begins on the same weekday as the newly-current month, copy/paste that month's calendar-formatting data from within the edit page, and using search-and-replace, update the month names (and year number if appropriate) to reflect the new Portal page's (current) month (and year). Also check that the month concludes on the correct day. For example, both February and March 2009's calendars commence on Sunday, identically to the Current Events calendar for June 2008. The only alterations necessary to produce these new calendars are to update the appropriate month/year names, and then delete days 29 and 30 from February '09, and add day 30 for March. {| class="infobox" width="250" style="text-align: center; margin-top:7px; border:2px solid #cedff2;"
+|- style="background-color: #cedff2"
+| style="padding-top: 5px; padding-bottom: 5px; font-size:90%" | '''Time''': {{CURRENTTIME}}
+[[Coordinated Universal Time|UTC]]  |  '''Date''': [[{{CURRENTMONTHNAME}} {{CURRENTDAY}}]]
+|}
+{| class="infobox" width="250" style="text-align: center; background-color: #f5faff; border:2px solid #cedff2;"
+|- style="background-color: #cedff2"
+| style="padding-top: 5px; padding-bottom: 5px" | [[Portal:Current events/July 2006|<<]]
+| colspan=5 style="padding: 5px 0px" |'''[[Portal:Current events/August 2006|August 2006]]'''
+| style="padding-top: 5px; padding-bottom: 5px" | [[Portal:Current events/September 2006|>>]]
+|-
+|S
+|M
+|T
+|W
+|T
+|F
+|S
+|-
+|
+|
+|'''[[#2006 August 1|1]]'''
+|'''[[#2006 August 2|2]]'''
+|'''[[#2006 August 3|3]]'''
+|'''[[#2006 August 4|4]]'''
+|'''[[#2006 August 5|5]]'''
+|-
+|'''[[#2006 August 6|6]]'''
+|'''[[#2006 August 7|7]]'''
+|'''[[#2006 August 8|8]]'''
+|'''[[#2006 August 9|9]]'''
+|'''[[#2006 August 10|10]]'''
+|'''[[#2006 August 11|11]]'''
+|'''[[#2006 August 12|12]]'''
+|-
+.
+.
+.
+|-
+|'''[[#2006 August 27|27]]'''
+|'''[[#2006 August 28|28]]'''
+|'''[[#2006 August 29|29]]'''
+|'''[[#2006 August 30|30]]'''
+|'''[[#2006 August 31|31]]'''
+|
+|
+|-
+| colspan="7" style="padding-top: 5px; padding-bottom: 5px; font-size:80%; text-align:right;" | <small>
+class="editlink noprint plainlinks">[{{SERVER}}
+{{localurl:Portal:Current events/August 2006/Calendar|action=edit}} edit box]</small>
+|}
+ The main portal calendar (Portal:Current events/Calendar) is auto-updated (NEW: Feb 21 2009) with pre-loaded subpages so that the dates from both months are linked. Note that dates from the previous month have | style="background-color:#cee7ff;" | added (to add a light blue background), and that no week from the previous month has fewer than seven days in the calendar, even though they may not be linked (NOTE: This style element has been altered of late (as of Feb 1 2009) to only show linked dates from the prev month--see comments to the right of the lines reflecting July 23/24/25): <s>{| class="infobox" width="250" style="text-align: center; margin-top:7px; border:2px solid #cedff2;"
+|- style="background-color: #cedff2"
+| style="padding: 5px 0px; font-size:90%" | '''Time''': {{CURRENTTIME}} [[Coordinated Universal Time|UTC]]  
+|  '''Date''': [[{{CURRENTMONTHNAME}} {{CURRENTDAY}}]]
+|}</s> (''Note (as of Feb 21 2009):'' the preceding struck-though code does '''''not''''' form part of the transcluded day-by-day month box pages, sample code of which follows.)
+{| class="infobox" width="250" style="text-align: center; background-color: #f5faff; border:2px solid #cedff2;"
+|- style="background-color: #cedff2"
+| style="padding-top: 5px; padding-bottom: 5px" | [[Portal:Current events/July 2006|<<]]
+| colspan=5 style="padding: 5px 0px" | '''[[Portal:Current events/August 2006|August 2006]]'''
+| style="padding-top: 5px; padding-bottom: 5px" | [[Portal:Current events/September 2006|>>]]
+|-
+|S
+|M
+|T
+|W
+|T
+|F
+|S
+|-
+| style="background-color:#cee7ff;" |23  (UPDATED: cell left blank as of FEB 2009)
+| style="background-color:#cee7ff;" |24                 (as above)
+| style="background-color:#cee7ff;" |25                 (as above)
+| style="background-color:#cee7ff;" |'''[[#2006 July 26|26]]'''
+| style="background-color:#cee7ff;" |'''[[#2006 July 27|27]]'''
+| style="background-color:#cee7ff;" |'''[[#2006 July 28|28]]'''
+| style="background-color:#cee7ff;" |'''[[#2006 July 29|29]]'''
+|-
+| style="background-color:#cee7ff;" |'''[[#2006 July 30|30]]'''
+| style="background-color:#cee7ff;" |'''[[#2006 July 31|31]]'''
+|'''[[#2006 August 1|1]]'''
+|2
+|3
+|4
+|5
+|-
+.
+.
+.
+|-
+|27
+|28
+|29
+|30
+|31
+|
+|
+|-
+| colspan="7" style="padding-top: 5px; padding-bottom: 5px; font-size:80%; text-align:right;" | <small class="editlink noprint plainlinks">[{{SERVER}}{{localurl:Portal:Current events/Calendar|action=edit}} edit box]</small>
+|}
+ Copy the previous month's sidebar page to the new month's sidebar page (e.g. Portal:Current events/July 2006/Sidebar to Portal:Current events/August 2006/Sidebar) and remove the contents that don't apply to the new month. For example, holidays, elections, and trials that occurred during the previous month, but not the current month should be removed, but the ongoing conflicts, events, and trials that continue into the current month should remain. Make sure to remove every reference to the previous month's sidebar (i.e. in the edit sidebar links). Doing a find and replace in your favored word processing app or wiki editor helps find all the references. If you're not sure which events, trials, etc. remain relevant in the new month, it may be a good idea to copy the events under ongoing in the main sidebar at Portal:Current events/Sidebar. The actions noted under the periodically section are completed — events are transferred from the primary current events sidebar to the July 2006 sidebar — if they are not already done. The link in Portal:Current events/More events does not really need to be updated until the seventh of the month since all of the current month's events will be on the main portal page until then. Additionally, the events at the bottom of the main portal page will be from the last several days of the pre contentType 24 text/html; charset=UTF-8 url 81 https://en.wikipedia.org:443/wiki/Portal:Current_events/How_to_archive_the_portal responseCode 3 200 

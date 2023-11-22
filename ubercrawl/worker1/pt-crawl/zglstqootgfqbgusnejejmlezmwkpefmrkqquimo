@@ -1,0 +1,274 @@
+zglstqootgfqbgusnejejmlezmwkpefmrkqquimo length 6 730448 page 10000 /*
+* ===============================================================
+*                    FileUploadWizard.js
+* Script for uploading files through a dynamic questionnaire.
+* This is the code to accompany [[Wikipedia:File Upload Wizard]].
+* ===============================================================
+*/
+
+var fuwTesting = false;
+var fuwDefaultTextboxLength = 60;
+var fuwDefaultTextareaWidth = '90%';
+var fuwDefaultTextareaLines = 3;
+
+// ================================================================
+// Constructor function of global fuw (= File Upload Wizard) object
+// ================================================================
+function fuwGlobal() {
+
+   // see if user is logged in, autoconfirmed, experienced etc.
+   this.getUserStatus();
+
+   fuwSetVisible('warningLoggedOut', (this.userStatus == 'anon'));
+   fuwSetVisible('warningNotConfirmed', (this.userStatus == 'notAutoconfirmed'));
+   this.disabled = (this.userStatus == 'anon') || (this.userStatus == 'notAutoconfirmed');
+   if (this.disabled) {
+      return;
+   }
+   fuwSetVisible('fuwStartScriptLink', false);
+
+   // create the form element to wrap the main ScriptForm area
+   // containing input elements of Step2 and Step3
+   var frm = fuwGet('fuwScriptForm');
+   if (! frm) {
+      frm = document.createElement('form');
+      frm.id = "fuwScriptForm";
+      var area = fuwGet('placeholderScriptForm');
+      var parent = area.parentNode;
+      parent.insertBefore(frm, area);
+      parent.removeChild(area);
+      frm.appendChild(area);
+   }
+   this.ScriptForm = frm;
+
+   // create the TargetForm element that contains the file selector
+   frm = fuwGet('TargetForm');
+   if (! frm) {
+      frm = document.createElement('form');
+      frm.id = "TargetForm";
+      var area = fuwGet('placeholderTargetForm');
+      var parent = area.parentNode;
+      parent.insertBefore(frm, area);
+      parent.removeChild(area);
+      frm.appendChild(area);
+   }
+   this.TargetForm = frm;
+
+   // For the testing version, create a third form that will display
+   // the contents to be submitted, at the bottom of the page
+   if (fuwTesting) {
+      frm = fuwGet('fuwTestForm');
+      if (! frm) {
+         frm = document.createElement('form');
+         frm.id = "fuwTestForm";
+         var area = fuwGet('placeholderTestForm');
+         var parent = area.parentNode;
+         parent.insertBefore(frm, area);
+         parent.removeChild(area);
+         frm.appendChild(area);
+      }
+      this.TestForm = frm;
+   }
+
+   // objects to hold cached results during validation and processing
+   this.opts = { };
+   this.warn = { };
+
+   // create the input filename box
+   var filebox  = document.createElement('input');
+   filebox.id   = 'file';
+   filebox.name = 'file';
+   filebox.type = 'file';
+   filebox.size = fuwDefaultTextboxLength;
+   filebox.onchange = fuwValidateFile;
+   filebox.accept = 'image/png,image/jpeg,image/gif,image/svg+xml,image/tiff,image/x-xcf,application/pdf,image/vnd.djvu,audio/ogg,video/ogg,audio/rtp-midi,audio/mp3,image/webp,video/webm,audio/opus,video/mpeg,audio/wav,audio/flac';
+   fuwAppendInput('file', filebox);
+
+   // Default values for API call parameters
+   this.UploadOptions = {
+      filename : '',
+      text     : '',
+      comment  : '',
+      ignorewarnings : 1,
+      watch    : 1
+   };
+
+   if (fuwTesting) {
+      fuwMakeHiddenfield('title', mw.config.get('wgPageName') + "/sandbox", 'SandboxTitle');
+      fuwMakeHiddenfield('token', mw.user.tokens.get('csrfToken'), 'SandboxToken');
+      fuwMakeHiddenfield('recreate', 1, 'SandboxRecreate');
+   }
+
+   if (fuwTesting) {
+
+      // create the sandbox submit button
+      btn = document.createElement('input');
+      btn.id = 'SandboxButton';
+      btn.value = 'Sandbox';
+      btn.name  = 'Sandbox';
+      btn.disabled = true;
+      btn.type = 'button';
+      btn.style.width = '12em';
+      btn.onclick = fuwSubmitSandbox;
+      fuwAppendInput('SandboxButton', btn);
+
+   }
+
+   // create the real submit button
+   btn = document.createElement('input');
+   btn.id = "SubmitButton";
+   btn.value = "Upload";
+   btn.name = "Upload";
+   btn.disabled = true;
+   btn.type = "button";
+   btn.onclick = fuwSubmitUpload;
+   btn.style.width = '12em';
+   fuwAppendInput('SubmitButton', btn);
+
+   // create the Commons submit button
+   btn = document.createElement('input');
+   btn.id = "CommonsButton";
+   btn.value = "Upload on Commons";
+   btn.name  = "Upload_on_Commons";
+   btn.disabled = true;
+   btn.type = "button";
+   btn.onclick = fuwSubmitCommons;
+   btn.style.width = '12em';
+   fuwAppendInput('CommonsButton', btn);
+
+   // create reset buttons
+   for (i = 1; i<=2; i++) {
+      btn = document.createElement('input');
+      btn.id = 'ResetButton' + i;
+      btn.value = "Reset form";
+      btn.name  = "Reset form";
+      btn.type  = "button";
+      btn.onclick = fuwReset;
+      btn.style.width = '12em';
+      fuwAppendInput('ResetButton' + i, btn);
+   }
+
+   // names of radio button fields
+   var optionRadioButtons = {
+      // top-level copyright status choice
+      'FreeOrNonFree' : ['OptionFree','OptionNonFree','OptionNoGood'],
+      // main subsections under OptionFree
+      'FreeOptions'   : ['OptionOwnWork', 'OptionThirdParty', 'OptionFreeWebsite',
+                         'OptionPDOld', 'OptionPDOther'],
+      // main subsections under OptionNonFree
+      'NonFreeOptions': ['OptionNFSubject','OptionNF3D','OptionNFExcerpt',
+                         'OptionNFCover','OptionNFLogo','OptionNFPortrait',
+                         'OptionNFMisc'],
+      // response options inside warningFileExists
+      'FileExistsOptions': 
+                        ['NoOverwrite','OverwriteSame','OverwriteDifferent'],
+      // choice of evidence in OptionThirdParty subsection
+      'ThirdPartyEvidenceOptions' : 
+                        ['ThirdPartyEvidenceOptionLink',
+                         'ThirdPartyEvidenceOptionOTRS',
+                         'ThirdPartyEvidenceOptionOTRSForthcoming',
+                         'ThirdPartyEvidenceOptionNone'],
+      // choice of PD status in OptionPDOld subsection
+      'PDOldOptions'  : ['PDUSExpired','PDURAA','PDFormality','PDOldOther'],
+      // choice of PD status in OptionPDOther subsection
+      'PDOtherOptions': ['PDOtherUSGov','PDOtherOfficial','PDOtherSimple',
+                         'PDOtherOther'],
+      // whether target article is wholly or only partly dedicated to discussing non-free work:
+      'NFSubjectCheck': ['NFSubjectCheckDedicated','NFSubjectCheckDiscussed'],
+      'NF3DCheck'     : ['NF3DCheckDedicated','NF3DCheckDiscussed'],
+      // choice about copyright status of photograph in OptionNF3D
+      'NF3DOptions'   : ['NF3DOptionFree','NF3DOptionSame']
+   };
+   for (var group in optionRadioButtons) {
+      var op = optionRadioButtons[group];
+      for (i=0; i<op.length; i++) {
+         fuwMakeRadiobutton(group, op[i]);
+      }
+   }
+   this.ScriptForm.NoOverwrite.checked = true;
+   
+   // input fields that trigger special
+   // onchange() event handlers for validation:
+   fuwMakeTextfield('InputName', fuwValidateFilename);
+   fuwMakeTextfield('NFArticle', fuwValidateNFArticle);
+
+   // names of input fields that trigger normal
+   // validation event handler
+   var activeTextfields = [
+      'Artist3D','Country3D',
+      'Date','OwnWorkCreation','OwnWorkPublication',
+      'Author','Source',
+      'Permission','ThirdPartyOtherLicense',
+      'ThirdPartyEvidenceLink','ThirdPartyOTRSTicket',
+      'FreeWebsiteOtherLicense',
+      'PDOldAuthorLifetime','Publication',
+      'PDOldCountry','PDOldPermission',
+      'PDOfficialPermission','PDOtherPermission',
+      'NFSubjectPurpose', 'NF3DOrigDate', 'NF3DPurpose',
+      'NF3DCreator',
+      'NFPortraitDeceased',
+      'EditSummary'
+   ];
+   for (i=0; i<activeTextfields.length; i++) {
+      fuwMakeTextfield(activeTextfields[i]);
+   }
+
+   // names of multiline textareas
+   var activeTextareas = [
+      'InputDesc','NF3DPermission',
+      'NFCommercial','NFPurpose','NFReplaceableText',
+      'NFReplaceable','NFCommercial','NFMinimality','AnyOther'
+   ];
+   for (i=0; i<activeTextareas.length; i++) {
+      fuwMakeTextarea(activeTextareas[i]);
+   };
+
+   var checkboxes = [
+      'NFCoverCheckDedicated','NFLogoCheckDedicated','NFPortraitCheckDedicated'
+   ];
+   for (i=0; i<checkboxes.length; i++) {
+      fuwMakeCheckbox(checkboxes[i]);
+   };
+
+   var licenseLists = {
+      'OwnWorkLicense' : 
+        // array structure as expected for input to fuwMakeSelection() function.
+        // any entry that is a two-element array will be turned into an option
+        // (first element is the value, second element is the display string).
+        // Entries that are one-element arrays will be the label of an option group.
+        // Zero-element arrays mark the end of an option group.
+        [
+        ['Allow all use as long as others credit you and share it under similar conditions'],
+        ['self|GFDL|cc-by-sa-4.0|migration=redundant', 
+         'Creative Commons Attribution-Share Alike 4.0 + GFDL (recommended)',
+         true],
+        ['self|cc-by-sa-4.0',
+         'Creative Commons Attribution-Share Alike 4.0'],
+        [],
+        ['Allow all use as long as others credit you'],
+        ['self|cc-by-4.0',
+         'Creative Commons Attribution 4.0'],
+        [],
+        ['Reserve no rights'],
+        ['self|cc0',
+         'CC0 Universal Public Domain Dedication'],
+        []
+        ],   
+      'ThirdPartyLicense' :
+        [
+        ['', 'please select the correct license...'],
+        ['Freely licensed:'],
+        ['cc-by-sa-4.0', 'Creative Commons Attribution-Share Alike (cc-by-sa-4.0)'],
+        ['cc-by-4.0', 'Creative Commons Attribution (cc-by-4.0)'],
+        ['GFDL', 'GNU Free Documentation License (GFDL)'],
+        [],
+        ['No rights reserved:'],
+        ['PD-author', 'Public domain'],
+        [],
+        ['Other (see below)'],
+        []
+        ],   
+      'FreeWebsiteLicense' :
+        [
+        ['', 'please select the correct license...'],
+        ['Freely lic contentType 24 text/html; charset=UTF-8 url 63 https://en.wikipedia.org:443/wiki/MediaWiki:FileUploadWizard.js responseCode 3 200 
