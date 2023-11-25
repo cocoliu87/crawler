@@ -1,23 +1,16 @@
 package cis5550.jobs;
 
-import java.io.BufferedReader;
-import java.io.ByteArrayOutputStream;
-import java.io.File;
-import java.io.FileNotFoundException;
-import java.io.FileWriter;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.io.RandomAccessFile;
+import java.io.*;
 import java.net.HttpURLConnection;
-import java.net.URI;
-import java.net.URISyntaxException;
 import java.net.URL;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
-import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
+import java.util.zip.GZIPOutputStream;
 
 import cis5550.tools.*;
 import org.jsoup.Connection;
@@ -30,7 +23,10 @@ import cis5550.flame.FlameContext;
 import cis5550.flame.FlameRDD;
 import cis5550.kvs.KVSClient;
 import cis5550.kvs.Row;
-import cis5550.tools.HTTP;
+
+import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.pdfbox.text.PDFTextStripper;
+import org.apache.commons.logging.LogFactory;
 
 public class Crawler {
     private static final Pattern LINK_PATTERN = Pattern.compile("<a\\s+(?:[^>]*?\\s+)?href=\"([^\"]*)\"", Pattern.CASE_INSENSITIVE);
@@ -48,9 +44,10 @@ public class Crawler {
         String kvs_master = ctx.getKVS().getCoordinator();
 
         List<String> seed = new LinkedList<String>();
+        Boolean cache = Boolean.valueOf(arr[1]);
 
-        if (arr.length >= 1 && arr[0].equals("seed")) {
-            for (int i=1; i<arr.length; i++) {
+        if (arr.length >= 2 && arr[0].equals("seed")) {
+            for (int i=2; i<arr.length; i++) {
                 seed.add(normalize(arr[i], ""));
             }
         }
@@ -88,6 +85,7 @@ public class Crawler {
                         Row host_row = kvs.getRow("hosts", parsed_url[1]);
 
                         if (host_row != null) {
+                            System.out.println("Test 1");
                             String robots_txt = host_row.get("robots_txt");
 
                             if (robots_txt == null) {
@@ -137,111 +135,110 @@ public class Crawler {
                             }
 
                         } else {
+                            System.out.println("Test 2");
                             host_row = new Row(parsed_url[1]);
-                            HttpURLConnection robot_con = (HttpURLConnection)(new URL(parsed_url[0]+"://"+parsed_url[1]+":"+parsed_url[2]+"/robots.txt")).openConnection();
-                            robot_con.setConnectTimeout(5000);
-                            robot_con.setReadTimeout(5000);
-                            robot_con.setRequestMethod("GET");
-                            robot_con.setDoOutput(true);
-                            robot_con.setRequestProperty("User-Agent", "cis5550-crawler");
-                            robot_con.setInstanceFollowRedirects(false);
-                            robot_con.connect();
-                            if (robot_con.getResponseCode() == 200) {
-                                BufferedReader robot_r = new BufferedReader(new InputStreamReader(robot_con.getInputStream()));
-                                String robots_txt = "";
-                                while (true) {
-                                    String l = robot_r.readLine();
-                                    if (l == null)
-                                        break;
-                                    robots_txt = robots_txt + "\n" + l;
-                                }
-                                host_row.put("robots_txt", robots_txt);
+                            Connection.Response robot_con = Jsoup.connect(parsed_url[0] + "://" + parsed_url[1] + "/robots.txt")
+                                    .userAgent(USER_AGENT)
+                                    .timeout(TIMEOUT)
+                                    .ignoreContentType(true) // Important for fetching plain text files
+                                    .execute();
+
+                            System.out.println("Test 5");
+
+                            if (robot_con.statusCode()  == 200) {
+                                String robotsTxt = robot_con.body();
+                                host_row.put("robots_txt", robotsTxt);
                             }
+                            System.out.println("Test 3");
                         }
+                        System.out.println("Test 4");
 
                         host_row.put("last_accessed_time", String.valueOf(System.currentTimeMillis()));
                         kvs.putRow("hosts", host_row);
-                        HttpURLConnection con = (HttpURLConnection)(new URL(u)).openConnection();
-                        con.setReadTimeout(5000);
-                        con.setConnectTimeout(5000);
-                        con.setRequestMethod("HEAD");
-                        con.setDoOutput(true);
-                        con.setInstanceFollowRedirects(false);
-                        con.setRequestProperty("User-Agent", "cis5550-crawler");
-                        con.connect();
+                        Connection.Response response = Jsoup.connect(u)
+                                .userAgent(USER_AGENT)
+                                .timeout(TIMEOUT)
+                                .followRedirects(false) // important if you want to handle redirects manually
+                                .method(Connection.Method.GET)
+                                .ignoreContentType(true) // to fetch non-HTML content types
+                                .execute();
+
+
                         Row row = new Row(hashKey);
                         row.put("url", u);
-                        int code = con.getResponseCode();
+
+
+                        int code = response.statusCode();
                         row.put("responseCode", String.valueOf(code));
-                        Map<String, List<String>> header = con.getHeaderFields();
-                        Map<String, String> lower_header = new HashMap<String, String>();
-                        for (String key: header.keySet()) {
-                            if (key != null && header.get(key).size() > 0) {
-                                lower_header.put(key.toLowerCase(), header.get(key).get(0));
-                            }
-                        }
 
-                        if (lower_header.containsKey("content-encoding") && lower_header.get("content-encoding").equals("gzip")) {
+
+                        // Access response headers directly from the Response object
+                        String contentEncoding = response.header("Content-Encoding");
+                        String contentLanguage = response.header("Content-Language");
+                        String contentType = response.contentType(); // Convenience method for Content-Type header
+                        String contentLength = response.header("Content-Length");
+
+//                        if (contentEncoding != null && "gzip".equalsIgnoreCase(contentEncoding)) {
+//                            return new_url_list;
+//                        }
+//                        if (contentEncoding != null) {
+//                            System.out.println("url Encoding ");
+//                            return new_url_list;
+//                        }
+                        if (contentLanguage != null && !contentLanguage.startsWith("en")) {
                             return new_url_list;
                         }
-                        if (lower_header.containsKey("content-language") && !lower_header.get("content-language").startsWith("en")) {
-                            return new_url_list;
+                        if (contentType != null) {
+                            row.put("contentType", contentType);
                         }
-                        if (lower_header.containsKey("content-type")) {
-                            row.put("contentType", lower_header.get("content-type").toString());
-                        }
-                        if (lower_header.containsKey("content-length")) {
-//					    	row.put("length", lower_header.get("content-length").toString());
-                            row.put("length", con.getHeaderField("Content-Length"));
+                        if (contentLength != null) {
+                            row.put("length", contentLength);
                         }
 
-                        if (code == 200) {
-                            Connection.Response response = Jsoup.connect(u)
-                                    .userAgent(USER_AGENT)
-                                    .timeout(TIMEOUT)
-                                    .followRedirects(false)
-                                    .execute();
+                        System.out.println("Content Type: " + contentType);
+                        System.out.println("Content Length: " + contentLength);
+                        System.out.println("Content Language: " + contentLanguage);
 
+                        if (code == 200 && contentType != null && contentType.startsWith("text/html")) {
                             // Check the status code and content type
-                            int statusCode = response.statusCode();
-                            String contentType = response.contentType();
 
-                            if (statusCode == 200 && contentType != null && contentType.contains("text/html")) {
-                                Document doc = response.parse();
+                            Document doc = response.parse();
+                            String bodyText = doc.text();
+                            String limitedBodyText = bodyText.substring(0, Math.min(bodyText.length(), 10000));
 
-                                String bodyText = doc.text();
-                                String limitedBodyText = bodyText.substring(0, Math.min(bodyText.length(), 10000));
+                            // When saving the page content
+                            try {
+                                savePageContent(u, doc.outerHtml(), row);
+                            } catch (IOException e) {
+                                e.printStackTrace(); // Or handle the exception as appropriate
+                            }
+                            row.put("page", limitedBodyText);
 
-                                // Extract the main content based on the CSS selector, if necessary
-//                                Element mainContent = doc.select("#mw-content-text > div").first();
-//                                if (mainContent != null) {
-//                                    limitedBodyText = mainContent.text().substring(0, Math.min(mainContent.text().length(), 10000));
-//                                }
+                            Elements links = doc.select("a[href]");
 
-                                // Save the truncated text content
-                                row.put("page", limitedBodyText); // Assuming 'row' is a Map-like structure
-
-                                Elements links = doc.select("a[href]");
-
-                                for (Element link : links) {
-                                    String linkHref = link.attr("href");
-                                    if (isValidLink(linkHref)){
-                                        String new_url = normalize(linkHref, u);
+                            for (Element link : links) {
+                                String linkHref = link.attr("href");
+                                if (isValidLink(linkHref)){
+                                    String new_url = normalize(linkHref, u);
 //                                        if (new_url.contains("en.wikipedia.org")) {
-                                        if (!new_url.isEmpty() && !kvs.existsRow("frontier", Hasher.hash(new_url))) {
-                                            // Your URL filtering conditions here
-                                            new_url_list.add(new_url);
-                                            kvs.put("frontier", Hasher.hash(new_url), "url", new_url);
-                                        }
-//                                        }
+                                    if (!new_url.isEmpty() && !kvs.existsRow("frontier", Hasher.hash(new_url))) {
+                                        // Your URL filtering conditions here
+                                        new_url_list.add(new_url);
+                                        kvs.put("frontier", Hasher.hash(new_url), "url", new_url);
                                     }
+//                                        }
                                 }
                             }
-                        } else if (s.contains(code)){
-                            if (!lower_header.get("location").equals(u)) {
-                                new_url_list.add(normalize(lower_header.get("location"), u));
+                        }
+
+                        if (code == 200 && contentType != null && contentType.equals("application/pdf")){
+                            try (InputStream pdfStream = response.bodyStream()) {
+                                String pdfText = extractTextFromPDF(pdfStream);
+
+                                kvs.put("pt-pdf", hashKey, "page", pdfText);
                             }
                         }
+
                         kvs.putRow("pt-crawl", row);
                         kvs.put("crawled-url", hashKey, "url", u);
 //                        System.gc();
@@ -343,16 +340,59 @@ public class Crawler {
 //            return false;
 //        }
 
-        if ((!s.contains("en") && !s.contains("wikipedia.org")) || s.contains("bbc") || s.contains("cnn") || !s.startsWith("/")){
+
+        if ((s.contains("en") && s.contains("wikipedia.org")) || s.contains("www.bbc.com") || s.contains("edition.cnn") || s.startsWith("/")) {
+        } else {
             return false;
         }
 
         if (s.isEmpty() || s.endsWith(".jpg") || s.endsWith(".jpeg") || s.endsWith(".gif") || s.endsWith(".png") ||
-                s.endsWith(".txt") || s.endsWith(".svg") || s.contains("Special:") || s.contains("File:") || s.contains("index.php") ||
+                s.endsWith(".txt") || s.endsWith(".svg") || s.contains("Special:") || s.contains("File:") || s.contains("index.php") || s.contains("mailto") || s.contains("download") || s.contains("cloud.email") || s.contains("contact-us") || s.contains("localhost") || s.contains("usingthebbc") ||
                 s.contains("Wikipedia:") || s.contains("identifier") || s.contains("Template:") || s.contains("Template_talk:") || s.contains("Help:") || s.contains("Category:") || s.contains("Talk:") || s.contains("Portal:")) {
             return false;
         }
 
         return true;
+    }
+
+    private static void savePageContent(String url, String htmlContent, Row row) throws IOException {
+        // Create a unique identifier for the content, e.g., a hash of the URL
+
+        String hash = Hasher.hash(url);
+
+        Path cacheDirectoryPath = Paths.get("cache_pages");
+
+        // Ensure the 'cache_pages' directory exists
+        if (!Files.exists(cacheDirectoryPath)) {
+            Files.createDirectories(cacheDirectoryPath);
+        }
+
+        // Resolve the path to the file within the 'cache_pages' directory
+        Path filePath = cacheDirectoryPath.resolve(hash + ".html.gz");
+
+        // Check if the file already exists
+        if (Files.exists(filePath)) {
+            // Log this situation if needed
+            System.out.println("File already exists for URL: " + url);
+            return; // Skip saving as the file already exists
+        }
+
+        try (OutputStream fileOutputStream = Files.newOutputStream(filePath);
+             BufferedOutputStream bufferedOutputStream = new BufferedOutputStream(fileOutputStream);
+             GZIPOutputStream gzipOutputStream = new GZIPOutputStream(bufferedOutputStream)) {
+
+            // Write the compressed HTML content to the file
+            gzipOutputStream.write(htmlContent.getBytes(StandardCharsets.UTF_8));
+        }
+
+        // Assuming KVSClient is your abstraction for the key-value storage
+        row.put("cache_path", filePath.toString());
+    }
+
+    private static String extractTextFromPDF(InputStream pdfStream) throws IOException {
+        try (PDDocument document = PDDocument.load(pdfStream)) {
+            PDFTextStripper stripper = new PDFTextStripper();
+            return stripper.getText(document);
+        }
     }
 }
