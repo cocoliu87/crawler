@@ -1,4 +1,4 @@
-package cis5550.jobs;
+package cis5550.api;
 
 import cis5550.external.PorterStemmer;
 import cis5550.tools.TFIDFDocument;

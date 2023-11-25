@@ -6,15 +6,15 @@ package cis5550.tools;
  * sorting, etc.
  */
 public class SearchResult {
-    private Document document;
+    private TFIDFDocument document;
     private double score;
 
-    public SearchResult(Document document, double score) {
+    public SearchResult(TFIDFDocument document, double score) {
         this.document = document;
         this.score = score;
     }
 
-    public Document getDocument() {
+    public TFIDFDocument getDocument() {
         return document;
     }
 

@@ -1,5 +1,7 @@
 package cis5550.tools;
 
+import java.io.BufferedReader;
+import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.HttpURLConnection;
@@ -297,4 +299,76 @@ public class Helpers {
         HashSet<String> outputSet = new HashSet<>(Arrays.asList(outputSlice));
         return new ArrayList<>(outputSet);
     }
+
+    public static synchronized HashSet<String> loadWordsFromFile(String filePath) {
+        String commentIdentifier = "#!comment:";
+
+        HashSet<String> wordSet = new HashSet<>();
+
+        try (BufferedReader bufferedReader = new BufferedReader(new FileReader(filePath))) {
+            String line;
+            while ((line = bufferedReader.readLine()) != null) {
+                // Ignore lines that start with the comment identifier
+                if (!line.trim().startsWith(commentIdentifier)) {
+                    // Trim leading and trailing whitespaces and add the word to the set
+                    wordSet.add(line.trim());
+                }
+            }
+        } catch (IOException e) {
+            System.out.println(e);
+            e.printStackTrace(); // Handle or log the exception based on your application's needs
+        }
+
+        return wordSet;
+    }
+
+    /**
+     // Example usage
+     HashMap<String, Integer> exampleHashMap = new HashMap<>();
+     exampleHashMap.put("one", 1);
+     exampleHashMap.put("two", 2);
+     exampleHashMap.put("three", 3);
+
+     String serializedString = serializeHashMap(exampleHashMap);
+     System.out.println("Serialized HashMap: " + serializedString);
+
+     HashMap<String, Integer> deserializedHashMap = deserializeHashMap(serializedString);
+     System.out.println("Deserialized HashMap: " + deserializedHashMap);
+
+     */
+
+    public static HashMap<String, Integer> deserializeHashMap(String serializedString) {
+        HashMap<String, Integer> deserializedHashMap = new HashMap<>();
+
+        // Split the serialized string into key-value pairs
+        String[] keyValuePairs = serializedString.split(",");
+
+        // Iterate through the pairs and populate the HashMap
+        for (int i = 0; i < keyValuePairs.length; i += 2) {
+            String key = keyValuePairs[i];
+            int value = Integer.parseInt(keyValuePairs[i + 1]);
+
+            deserializedHashMap.put(key, value);
+        }
+
+        return deserializedHashMap;
+    }
+
+    public static String serializeHashMap(HashMap<String, Integer> hashMap) {
+        StringBuilder serializedString = new StringBuilder();
+
+        for (Map.Entry<String, Integer> entry : hashMap.entrySet()) {
+            // Append key and value separated by a comma
+            serializedString.append(entry.getKey()).append(",").append(entry.getValue()).append(",");
+        }
+
+        // Remove the trailing comma if there is at least one entry
+        if (serializedString.length() > 0) {
+            serializedString.deleteCharAt(serializedString.length() - 1);
+        }
+
+        return serializedString.toString();
+    }
+
+
 }
