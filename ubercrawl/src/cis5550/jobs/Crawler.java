@@ -17,7 +17,9 @@ import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
+import cis5550.tools.*;
 import org.jsoup.Connection;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
@@ -28,16 +30,14 @@ import cis5550.flame.FlameContext;
 import cis5550.flame.FlameRDD;
 import cis5550.kvs.KVSClient;
 import cis5550.kvs.Row;
-import cis5550.tools.Hasher;
-import cis5550.tools.Logger;
-import cis5550.tools.URLParser;
+import cis5550.tools.HTTP;
 
 public class Crawler {
     private static final Pattern LINK_PATTERN = Pattern.compile("<a\\s+(?:[^>]*?\\s+)?href=\"([^\"]*)\"", Pattern.CASE_INSENSITIVE);
     private static final Set<String> seenUrls = ConcurrentHashMap.newKeySet();
     private static final int MAX_PERMITS = 10; // You can adjust this value as needed
     private static final Set<String> globalUrlSet = ConcurrentHashMap.newKeySet();
-    private static final int TIMEOUT = 10000;
+    private static final int TIMEOUT = 5000;
     private static final String USER_AGENT = "cis5550-crawler";
     private static final int MAX_URLS_TO_EXTRACT = 100;
     private static final HashSet<Integer> s = new HashSet<Integer>(Arrays.asList(301, 302, 303, 307, 308));
@@ -46,14 +46,11 @@ public class Crawler {
     public static void run(FlameContext ctx, String[] arr) {
 
         String kvs_master = ctx.getKVS().getCoordinator();
-//        ctx.setConcurrencyLevel(5);
-        String base;
 
         List<String> seed = new LinkedList<String>();
 
         if (arr.length >= 1 && arr[0].equals("seed")) {
             for (int i=1; i<arr.length; i++) {
-                base = URLParser.parseURL(arr[i])[0];
                 seed.add(normalize(arr[i], ""));
             }
         }
@@ -75,6 +72,7 @@ public class Crawler {
                 System.out.println(count+"-----------------------------------");
                 count += 1;
 
+                int finalCount = count;
                 urlQueue = urlQueue.flatMap(u-> {
                     Set<String> new_url_list = new HashSet<String>();
                     try {
@@ -215,10 +213,10 @@ public class Crawler {
                                 String limitedBodyText = bodyText.substring(0, Math.min(bodyText.length(), 10000));
 
                                 // Extract the main content based on the CSS selector, if necessary
-                                Element mainContent = doc.select("#mw-content-text > div").first();
-                                if (mainContent != null) {
-                                    limitedBodyText = mainContent.text().substring(0, Math.min(mainContent.text().length(), 10000));
-                                }
+//                                Element mainContent = doc.select("#mw-content-text > div").first();
+//                                if (mainContent != null) {
+//                                    limitedBodyText = mainContent.text().substring(0, Math.min(mainContent.text().length(), 10000));
+//                                }
 
                                 // Save the truncated text content
                                 row.put("page", limitedBodyText); // Assuming 'row' is a Map-like structure
@@ -246,7 +244,7 @@ public class Crawler {
                         }
                         kvs.putRow("pt-crawl", row);
                         kvs.put("crawled-url", hashKey, "url", u);
-                        System.gc();
+//                        System.gc();
                     } catch (Exception e) {
                         logger.error("Error in flatmap: " + u +" "+e.toString());
                     }
@@ -341,17 +339,17 @@ public class Crawler {
 
     public static Boolean isValidLink(String s){
         // Exclude certain file types and special links
-        if (s.startsWith("//")){
-            return false;
-        }
+//        if (s.startsWith("//")){
+//            return false;
+//        }
 
-        if ((!s.contains("en") && !s.contains("wikipedia.org")) || !s.startsWith("/")){
+        if ((!s.contains("en") && !s.contains("wikipedia.org")) || s.contains("bbc") || s.contains("cnn") || !s.startsWith("/")){
             return false;
         }
 
         if (s.isEmpty() || s.endsWith(".jpg") || s.endsWith(".jpeg") || s.endsWith(".gif") || s.endsWith(".png") ||
                 s.endsWith(".txt") || s.endsWith(".svg") || s.contains("Special:") || s.contains("File:") || s.contains("index.php") ||
-                s.contains("Wikipedia:") || s.contains("identifier") || s.contains("Template:") || s.contains("Template_talk:") || s.contains("Help:") || s.contains("Category:") || s.contains("Talk:")) {
+                s.contains("Wikipedia:") || s.contains("identifier") || s.contains("Template:") || s.contains("Template_talk:") || s.contains("Help:") || s.contains("Category:") || s.contains("Talk:") || s.contains("Portal:")) {
             return false;
         }
 
