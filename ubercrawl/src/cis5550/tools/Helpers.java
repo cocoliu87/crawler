@@ -1,5 +1,7 @@
 package cis5550.tools;
 
+import cis5550.external.PorterStemmer;
+
 import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
@@ -371,4 +373,11 @@ public class Helpers {
     }
 
 
+    public static String stemWord(String term) {
+        PorterStemmer porterStemmer = new PorterStemmer();
+        char[] charArray = term.toLowerCase().trim().toCharArray();
+        porterStemmer.add(charArray, charArray.length);
+        porterStemmer.stem();
+        return porterStemmer.toString();
+    }
 }
