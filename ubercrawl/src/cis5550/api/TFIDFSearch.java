@@ -1,25 +1,30 @@
 package cis5550.jobs;
 
 import cis5550.external.PorterStemmer;
-import cis5550.tools.Document;
+import cis5550.tools.TFIDFDocument;
 import cis5550.tools.SearchResult;
 
-import javax.annotation.processing.SupportedSourceVersion;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.util.*;
 
 
 public class TFIDFSearch {
-    private List<Document> documents;
-    private Map<String, Integer> documentFrequencies;
+    private List<TFIDFDocument> documents;
+
+    // Document document -> tfMap
     private Map<String, Map<String, Integer>> termFrequencies;
+
+    // Word -> Count
+    private Map<String, Integer> documentFrequencies;
+
+    // Word -> Double (idf value)
     private Map<String, Double> idf;
 
     // Taken from pythons stop words library, also found in other nlp libraries.
     private final List<String> stopWords = List.of("a", "about", "above", "after", "again", "against", "all", "am", "an", "and", "any", "are", "arent", "as", "at", "be", "because", "been", "before", "being", "below", "between", "both", "but", "by", "cant", "cannot", "could", "couldnt", "did", "didnt", "do", "does", "doesnt", "doing", "dont", "down", "during", "each", "few", "for", "from", "further", "had", "hadnt", "has", "hasnt", "have", "havent", "having", "he", "hed", "hell", "hes", "her", "here", "heres", "hers", "herself", "him", "himself", "his", "how", "hows", "i", "id", "ill", "im", "ive", "if", "in", "into", "is", "isnt", "it", "its", "its", "itself", "lets", "me", "more", "most", "mustnt", "my", "myself", "no", "nor", "not", "of", "off", "on", "once", "only", "or", "other", "ought", "our", "ours", "ourselves", "out", "over", "own", "same", "shant", "she", "shed", "shell", "shes", "should", "shouldnt", "so", "some", "such", "than", "that", "thats", "the", "their", "theirs", "them", "themselves", "then", "there", "theres", "these", "they", "theyd", "theyll", "theyre", "theyve", "this", "those", "through", "to", "too", "under", "until", "up", "very", "was", "wasnt", "we", "wed", "well", "were", "weve", "were", "werent", "what", "whats", "when", "whens", "where", "wheres", "which", "while", "who", "whos", "whom", "why", "whys", "with", "wont", "would", "wouldnt", "you", "youd", "youll", "youre", "youve", "your", "yours", "yourself", "yourselves");
 
-    public TFIDFSearch(List<Document> documents) {
+    public TFIDFSearch(List<TFIDFDocument> documents) {
         this.documents = documents;
         this.documentFrequencies = new HashMap<>();
         this.termFrequencies = new HashMap<>();
@@ -50,7 +55,7 @@ public class TFIDFSearch {
     }
 
     private void preprocess() {
-        for (Document document : documents) {
+        for (TFIDFDocument document : documents) {
             Map<String, Integer> tf = new HashMap<>();
             String[] words = getWords(document.getText());
 
@@ -140,7 +145,7 @@ public class TFIDFSearch {
         Map<String, Double> queryVector = vectorize(query);
         List<SearchResult> results = new ArrayList<>();
 
-        for (Document document : documents) {
+        for (TFIDFDocument document : documents) {
             Map<String, Integer> docTF = termFrequencies.get(document.getId());
             double cosineSimilarity = computeCosineSimilarity(queryVector, docTF);
 
@@ -151,8 +156,8 @@ public class TFIDFSearch {
         return results.subList(fromIndex, toIndex);
     }
 
-    public static List<Document> loadSongList() {
-        List<Document> documents = new ArrayList<>();
+    public static List<TFIDFDocument> loadSongList() {
+        List<TFIDFDocument> documents = new ArrayList<>();
         try(Scanner scanner = new Scanner(new File("./ubercrawl/static/songdata.csv"))) {
             //Read line
             while (scanner.hasNextLine()) {
@@ -166,7 +171,7 @@ public class TFIDFSearch {
 
                 // Add new song to documents
                 documents.add(
-                    new Document(
+                    new TFIDFDocument(
                         tokens[2], // url
                         sb.toString() // body
                     )
@@ -180,7 +185,7 @@ public class TFIDFSearch {
     }
 
     public static void main(String[] args) {
-        List<Document> documents = loadSongList();
+        List<TFIDFDocument> documents = loadSongList();
 
         TFIDFSearch tfIdfSearch = new TFIDFSearch(documents);
 

@@ -1,0 +1,20 @@
+---
+- name: Install JDK and JRE (Amazon Linux)
+  hosts: all_servers
+  become: true  # Run tasks as sudo
+
+  tasks:
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+
+    - name: Install amazon corretto (JDK)
+      ansible.builtin.yum:
+        name:
+          - java-21-amazon-corretto
+          - java-21-amazon-corretto-devel
+          - curl
+          - wget
+          - docker
+          - 
+        state: present
