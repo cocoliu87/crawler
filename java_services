@@ -7,32 +7,40 @@ JAVA_COMMAND="java -cp ubercrawl/lib/flame.jar:ubercrawl/lib/kvs.jar:ubercrawl/l
 function __clear_garbage() {
     echo "Clearing garbage...";
     #rm -rf "worker1/pt-crawl"
-    #rm *.jar || echo "OK";
+    rm *.jar || echo "OK";
     echo "Done clearing, starting services now...";
 }
 
 function __ubercrawl_start_kvs() {
     echo "Starting cis5550.kvs.Coordinator";
     $JAVA_COMMAND cis5550.kvs.Coordinator 8000&
-    sleep 1;
+    sleep 3;
     echo "Starting: cis5550.kvs.Worker (1)";
     $JAVA_COMMAND cis5550.kvs.Worker 8001 worker1 localhost:8000 &
-    sleep 1;
+    echo "Starting: cis5550.kvs.Worker (2)";
+    $JAVA_COMMAND cis5550.kvs.Worker 8002 worker2 localhost:8000 &
+    echo "Starting: cis5550.kvs.Worker (3)";
+    $JAVA_COMMAND cis5550.kvs.Worker 8003 worker3 localhost:8000 &
+    echo "Starting: cis5550.kvs.Worker (4)";
+    $JAVA_COMMAND cis5550.kvs.Worker 8004 worker4 localhost:8000 &
+    echo "Starting: cis5550.kvs.Worker (5)";
+    $JAVA_COMMAND cis5550.kvs.Worker 8005 worker5 localhost:8000 &
 }
 
 function __ubercrawl_start_flame() {
     echo "Starting: cis5550.flame.Coordinator";
     $JAVA_COMMAND cis5550.flame.Coordinator 9000 localhost:8000 &
-    sleep 1;
+    sleep 3;
     echo "Starting: cis5550.flame.Worker (1)";
     $JAVA_COMMAND cis5550.flame.Worker 9001 localhost:9000 &
-    sleep 1;
     echo "Starting: cis5550.flame.Worker (2)";
     $JAVA_COMMAND cis5550.flame.Worker 9002 localhost:9000 &
-    sleep 1;
     echo "Starting: cis5550.flame.Worker (3)";
     $JAVA_COMMAND cis5550.flame.Worker 9003 localhost:9000 &
-    sleep 1;
+    echo "Starting: cis5550.flame.Worker (4)";
+    $JAVA_COMMAND cis5550.flame.Worker 9004 localhost:9000 &
+    echo "Starting: cis5550.flame.Worker (5)";
+    $JAVA_COMMAND cis5550.flame.Worker 9005 localhost:9000 &
 }
 
 function __ubercrawl_start_api() {
@@ -53,7 +61,7 @@ function __ubercrawl_stop() {
     echo "Stopping Services";
 
     # KVS Coordinator
-    for KVS_PID in $(ps -ax | grep webserver | grep -v grep | awk '{print $1}');
+    for KVS_PID in $(ps -ax | grep cis5550 | grep -v grep | awk '{print $1}');
     do
         echo "Stopping process id $KVS_PID";
         kill -9 $KVS_PID;
@@ -78,6 +86,22 @@ function start() {
     __ubercrawl_start_api;
 }
 
+#
+# Shortcuts
+#
+function start_simple() {
+    echo "Starting cis5550.kvs.Coordinator";
+    $JAVA_COMMAND cis5550.kvs.Coordinator 8000&
+    sleep 3;
+    echo "Starting: cis5550.kvs.Worker (1)";
+    $JAVA_COMMAND cis5550.kvs.Worker 8001 __worker1 localhost:8000 &
+    echo "Starting: cis5550.flame.Coordinator";
+    $JAVA_COMMAND cis5550.flame.Coordinator 9000 localhost:8000 &
+    sleep 3;
+    echo "Starting: cis5550.flame.Worker (1)";
+    $JAVA_COMMAND cis5550.flame.Worker 9001 localhost:9000 &
+}
+
 function stop() {
     __ubercrawl_stop;
 }
@@ -87,9 +111,18 @@ function restart() {
 }
 
 function build() {
+    rm -rf ./ubercrawl/build ./ubercrawl/lib/ubercrawl.jar;
     find ./ubercrawl/src -type f -name "*.java" -exec javac -classpath "./ubercrawl/lib/*:./src" -d ./ubercrawl/build '{}' +
     jar cvf ./ubercrawl.jar -C ./ubercrawl/build .;
     mv ./ubercrawl.jar ubercrawl/lib;
+}
+
+function simple_crawl() {
+  $JAVA_COMMAND \
+    cis5550.flame.FlameSubmit \
+    localhost:9000 \
+    ubercrawl/lib/ubercrawl.jar \
+    cis5550.jobs.Crawler seed http://advanced.crawltest.cis5550.net/
 }
 
 function runCrawl() {
@@ -115,6 +148,22 @@ function runPageRank() {
     localhost:9000 \
     ubercrawl/lib/ubercrawl.jar \
       cis5550.jobs.PageRank;
+}
+
+function CalculateTF() {
+  $JAVA_COMMAND \
+    cis5550.flame.FlameSubmit \
+    localhost:9000 \
+    ubercrawl/lib/ubercrawl.jar \
+    cis5550.jobs.CalculateTF;
+}
+
+function CalculateIDF() {
+  $JAVA_COMMAND \
+    cis5550.flame.FlameSubmit \
+    localhost:9000 \
+    ubercrawl/lib/ubercrawl.jar \
+    cis5550.jobs.CalculateIDF;
 }
 
 echo "UberCrawl Java Services: $@" && $@;
