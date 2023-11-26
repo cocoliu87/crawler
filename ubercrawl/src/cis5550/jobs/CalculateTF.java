@@ -30,12 +30,6 @@ public class CalculateTF {
 	public static void run(FlameContext context, String[] args) throws Exception {
 
 		String kvsCoordinator = context.getKVS().getCoordinator();
-		int totalDocuments = context.getKVS().count("pt-crawl");
-		context.output("totalDocuments: " + totalDocuments);
-
-		context.output("stopWords: " + stopWords.size());
-		context.output("englishWords: " + englishWords.size());
-
 
 		context.fromTable("pt-crawl", row -> {
 			String url = row.get("url");
@@ -43,13 +37,29 @@ public class CalculateTF {
 			KVSClient kvsClient = new KVSClient(kvsCoordinator);
 
 			HashMap<String, Integer> tf = getDocumentTF(pageString);
-
 			String termFreq = Helpers.serializeHashMap(tf);
-
+			String pageRankTermFreq = "";
 			try {
-				putTermFreq(kvsClient, url, termFreq);
+				// Retrieve the page rank value for this url
+				String pageRank = Helpers.getKvsDefault(
+					kvsClient,
+					"pt-pageranks",
+					Hasher.hash(url),
+					"rank",
+					"0.0"
+				);
 
-				// Update document frequencies
+				/**
+				 * Now combine both PR and TF into a formatted string for
+				 * "deserialization". This is going to help make thousands less
+				 * network calls. Then insert document into RDD.
+				 */
+				pageRankTermFreq = "pagerank:" + pageRank  + "@" + termFreq;
+				putTermFreq(kvsClient, url, pageRankTermFreq);
+
+				/**
+				 * Next we need to get and update the current document frequency (TF)
+				 */
 				for (String word : tf.keySet()) {
 					int currentVal = getCurrentDocFreq(kvsClient, word, 0);
 					System.out.println("Current value for '" + word + "': " + currentVal);
@@ -60,10 +70,7 @@ public class CalculateTF {
 				throw new RuntimeException(e);
 			}
 
-			String output = Hasher.hash(url) + "@" + termFreq;
-
-
-
+			String output = Hasher.hash(url) + " >> " + pageRankTermFreq;
 			System.out.println("output: " + output);
 			return "";
 		});

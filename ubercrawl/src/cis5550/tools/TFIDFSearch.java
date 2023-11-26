@@ -1,8 +1,6 @@
-package cis5550.api;
+package cis5550.tools;
 
 import cis5550.external.PorterStemmer;
-import cis5550.tools.TFIDFDocument;
-import cis5550.tools.SearchResult;
 
 import java.io.File;
 import java.io.FileNotFoundException;

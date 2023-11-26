@@ -1,6 +1,7 @@
 package cis5550.tools;
 
 import cis5550.external.PorterStemmer;
+import cis5550.kvs.KVSClient;
 
 import java.io.BufferedReader;
 import java.io.FileReader;
@@ -15,6 +16,8 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class Helpers {
+
+    public static final HashSet<String> stopWords = new HashSet<>(List.of("a", "about", "above", "after", "again", "against", "all", "am", "an", "and", "any", "are", "arent", "as", "at", "be", "because", "been", "before", "being", "below", "between", "both", "but", "by", "cant", "cannot", "could", "couldnt", "did", "didnt", "do", "does", "doesnt", "doing", "dont", "down", "during", "each", "few", "for", "from", "further", "had", "hadnt", "has", "hasnt", "have", "havent", "having", "he", "hed", "hell", "hes", "her", "here", "heres", "hers", "herself", "him", "himself", "his", "how", "hows", "i", "id", "ill", "im", "ive", "if", "in", "into", "is", "isnt", "it", "its", "its", "itself", "lets", "me", "more", "most", "mustnt", "my", "myself", "no", "nor", "not", "of", "off", "on", "once", "only", "or", "other", "ought", "our", "ours", "ourselves", "out", "over", "own", "same", "shant", "she", "shed", "shell", "shes", "should", "shouldnt", "so", "some", "such", "than", "that", "thats", "the", "their", "theirs", "them", "themselves", "then", "there", "theres", "these", "they", "theyd", "theyll", "theyre", "theyve", "this", "those", "through", "to", "too", "under", "until", "up", "very", "was", "wasnt", "we", "wed", "well", "were", "weve", "were", "werent", "what", "whats", "when", "whens", "where", "wheres", "which", "while", "who", "whos", "whom", "why", "whys", "with", "wont", "would", "wouldnt", "you", "youd", "youll", "youre", "youve", "your", "yours", "yourself", "yourselves"));
 
     public static String removeQuotes(String inputHtml) {
         return inputHtml
@@ -380,4 +383,28 @@ public class Helpers {
         porterStemmer.stem();
         return porterStemmer.toString();
     }
+
+    public static String[] getWords(String document) {
+        String[] firstSet = document
+                .toLowerCase()
+                .replaceAll("\\p{Punct}", "")
+                .split("\\s+");
+
+        return Arrays
+                .stream(firstSet)
+                .filter(word -> !stopWords.contains(word))
+                .filter(word -> !word.isEmpty())
+                .map(Helpers::stemWord)
+                .toArray(String[]::new);
+    }
+
+    public static String getKvsDefault(KVSClient kvs, String table, String rowKey, String columnName, String defaultVal) throws IOException {
+        try {
+            byte[] data = kvs.get(table, rowKey, columnName);
+            return new String(data, StandardCharsets.UTF_8);
+        } catch(Exception e) {
+            return defaultVal;
+        }
+    }
+
 }
