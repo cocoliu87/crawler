@@ -1,5 +1,10 @@
 package cis5550.tools;
 
+import cis5550.external.PorterStemmer;
+import cis5550.kvs.KVSClient;
+
+import java.io.BufferedReader;
+import java.io.FileReader;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.HttpURLConnection;
@@ -11,6 +16,8 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 public class Helpers {
+
+    public static final HashSet<String> stopWords = new HashSet<>(List.of("a", "about", "above", "after", "again", "against", "all", "am", "an", "and", "any", "are", "arent", "as", "at", "be", "because", "been", "before", "being", "below", "between", "both", "but", "by", "cant", "cannot", "could", "couldnt", "did", "didnt", "do", "does", "doesnt", "doing", "dont", "down", "during", "each", "few", "for", "from", "further", "had", "hadnt", "has", "hasnt", "have", "havent", "having", "he", "hed", "hell", "hes", "her", "here", "heres", "hers", "herself", "him", "himself", "his", "how", "hows", "i", "id", "ill", "im", "ive", "if", "in", "into", "is", "isnt", "it", "its", "its", "itself", "lets", "me", "more", "most", "mustnt", "my", "myself", "no", "nor", "not", "of", "off", "on", "once", "only", "or", "other", "ought", "our", "ours", "ourselves", "out", "over", "own", "same", "shant", "she", "shed", "shell", "shes", "should", "shouldnt", "so", "some", "such", "than", "that", "thats", "the", "their", "theirs", "them", "themselves", "then", "there", "theres", "these", "they", "theyd", "theyll", "theyre", "theyve", "this", "those", "through", "to", "too", "under", "until", "up", "very", "was", "wasnt", "we", "wed", "well", "were", "weve", "were", "werent", "what", "whats", "when", "whens", "where", "wheres", "which", "while", "who", "whos", "whom", "why", "whys", "with", "wont", "would", "wouldnt", "you", "youd", "youll", "youre", "youve", "your", "yours", "yourself", "yourselves"));
 
     public static String removeQuotes(String inputHtml) {
         return inputHtml
@@ -297,4 +304,107 @@ public class Helpers {
         HashSet<String> outputSet = new HashSet<>(Arrays.asList(outputSlice));
         return new ArrayList<>(outputSet);
     }
+
+    public static synchronized HashSet<String> loadWordsFromFile(String filePath) {
+        String commentIdentifier = "#!comment:";
+
+        HashSet<String> wordSet = new HashSet<>();
+
+        try (BufferedReader bufferedReader = new BufferedReader(new FileReader(filePath))) {
+            String line;
+            while ((line = bufferedReader.readLine()) != null) {
+                // Ignore lines that start with the comment identifier
+                if (!line.trim().startsWith(commentIdentifier)) {
+                    // Trim leading and trailing whitespaces and add the word to the set
+                    wordSet.add(line.trim());
+                }
+            }
+        } catch (IOException e) {
+            System.out.println(e);
+            e.printStackTrace(); // Handle or log the exception based on your application's needs
+        }
+
+        return wordSet;
+    }
+
+    /**
+     // Example usage
+     HashMap<String, Integer> exampleHashMap = new HashMap<>();
+     exampleHashMap.put("one", 1);
+     exampleHashMap.put("two", 2);
+     exampleHashMap.put("three", 3);
+
+     String serializedString = serializeHashMap(exampleHashMap);
+     System.out.println("Serialized HashMap: " + serializedString);
+
+     HashMap<String, Integer> deserializedHashMap = deserializeHashMap(serializedString);
+     System.out.println("Deserialized HashMap: " + deserializedHashMap);
+
+     */
+
+    public static HashMap<String, Integer> deserializeHashMap(String serializedString) {
+        HashMap<String, Integer> deserializedHashMap = new HashMap<>();
+
+        // Split the serialized string into key-value pairs
+        String[] keyValuePairs = serializedString.split(",");
+
+        // Iterate through the pairs and populate the HashMap
+        for (int i = 0; i < keyValuePairs.length; i += 2) {
+            String key = keyValuePairs[i];
+            int value = Integer.parseInt(keyValuePairs[i + 1]);
+
+            deserializedHashMap.put(key, value);
+        }
+
+        return deserializedHashMap;
+    }
+
+    public static String serializeHashMap(HashMap<String, Integer> hashMap) {
+        StringBuilder serializedString = new StringBuilder();
+
+        for (Map.Entry<String, Integer> entry : hashMap.entrySet()) {
+            // Append key and value separated by a comma
+            serializedString.append(entry.getKey()).append(",").append(entry.getValue()).append(",");
+        }
+
+        // Remove the trailing comma if there is at least one entry
+        if (serializedString.length() > 0) {
+            serializedString.deleteCharAt(serializedString.length() - 1);
+        }
+
+        return serializedString.toString();
+    }
+
+
+    public static String stemWord(String term) {
+        PorterStemmer porterStemmer = new PorterStemmer();
+        char[] charArray = term.toLowerCase().trim().toCharArray();
+        porterStemmer.add(charArray, charArray.length);
+        porterStemmer.stem();
+        return porterStemmer.toString();
+    }
+
+    public static String[] getWords(String document) {
+        String[] firstSet = document
+                .toLowerCase()
+                .replaceAll("\\p{Punct}", "")
+                .split("\\s+");
+
+        return Arrays
+                .stream(firstSet)
+                .filter(word -> !stopWords.contains(word))
+                .filter(word -> !word.isEmpty())
+                .map(Helpers::stemWord)
+                .toArray(String[]::new);
+    }
+
+    public static String getKvsDefault(KVSClient kvs, String table, String rowKey, String columnName, String defaultVal) throws IOException {
+        try {
+            byte[] data = kvs.get(table, rowKey, columnName);
+            return new String(data, StandardCharsets.UTF_8);
+        } catch(Exception e) {
+            return defaultVal;
+        }
+    }
+
 }
