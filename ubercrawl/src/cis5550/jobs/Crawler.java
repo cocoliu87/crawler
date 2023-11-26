@@ -47,6 +47,7 @@ public class Crawler {
 
         List<String> seed = new LinkedList<String>();
         Boolean cache = Boolean.valueOf(arr[1]);
+        ctx.setConcurrencyLevel(10);
 
         if (arr.length >= 2 && arr[0].equals("seed")) {
             for (int i=2; i<arr.length; i++) {
@@ -89,8 +90,10 @@ public class Crawler {
                         String cachedContent = readFromCache(u, kvs);
                         if (cachedContent != null) {
                             Document doc = Jsoup.parse(cachedContent, u);
+
+                            doc.select("script, style").remove();
                             String bodyText = doc.text();
-                            String limitedBodyText = bodyText.substring(0, Math.min(bodyText.length(), 10000));
+                            String limitedBodyText = bodyText.length() > 10000 ? bodyText.substring(0, 10000) : bodyText;
 
                             kvs.put("pt-crawl", hashKey, "url", u);
                             kvs.put("pt-crawl", hashKey, "page", limitedBodyText);
@@ -177,10 +180,8 @@ public class Crawler {
                         Row row = new Row(hashKey);
                         row.put("url", u);
 
-
                         int code = response.statusCode();
                         row.put("responseCode", String.valueOf(code));
-
 
                         // Access response headers directly from the Response object
                         String contentEncoding = response.header("Content-Encoding");
@@ -205,23 +206,31 @@ public class Crawler {
                             row.put("length", contentLength);
                         }
 
-                        if (code == 200 && contentType != null && contentType.startsWith("text/html")) {
+                        if (code == 200 && contentType != null &&
+                                (contentType.startsWith("text/html") || contentType.startsWith("text/plain"))) {
                             // Check the status code and content type
 
-                            Document doc = response.parse();
-                            String bodyText = doc.text();
-                            String limitedBodyText = bodyText.substring(0, Math.min(bodyText.length(), 10000));
+                            byte[] bodyBytes = response.bodyAsBytes();
 
-                            // When saving the page content
-                            if (cache){
+                            // Explicitly specifying the charset when parsing the document
+                            Document doc = Jsoup.parse(new ByteArrayInputStream(bodyBytes), "UTF-8", u);
+
+                            if (cache) {
+                                // When saving the page content
                                 try {
                                     savePageContent(u, doc.outerHtml(), row);
                                 } catch (IOException e) {
-                                    e.printStackTrace(); // Or handle the exception as appropriate
+                                    e.printStackTrace(); // Or handle the exception as appropriately
                                 }
                             }
 
-                            row.put("page", limitedBodyText);
+                            // Remove script and style elements to clean up the document
+                            doc.select("script, style").remove();
+
+                            String bodyText = doc.text();
+                            String limitedBodyText = bodyText.length() > 10000 ? bodyText.substring(0, 10000) : bodyText;
+
+                            row.put("page", limitedBodyText.getBytes(StandardCharsets.UTF_8));
 
 //                                new_url_list = extractAndFilterUrls(doc, u);
                             Set<String> raw_url_list = extractAndFilterUrls(doc, u);
