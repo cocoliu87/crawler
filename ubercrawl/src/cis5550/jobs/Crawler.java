@@ -228,9 +228,9 @@ public class Crawler {
                             doc.select("script, style").remove();
 
                             String bodyText = doc.text();
-                            String limitedBodyText = bodyText.length() > 10000 ? bodyText.substring(0, 10000) : bodyText;
+//                                bodyText = bodyText.length() > 10000 ? bodyText.substring(0, 10000) : bodyText;
 
-                            row.put("page", limitedBodyText.getBytes(StandardCharsets.UTF_8));
+                            row.put("page", bodyText.getBytes(StandardCharsets.UTF_8));
 
 //                                new_url_list = extractAndFilterUrls(doc, u);
                             Set<String> raw_url_list = extractAndFilterUrls(doc, u);
