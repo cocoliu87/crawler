@@ -10,6 +10,8 @@ import java.nio.file.Paths;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
+import java.util.zip.GZIPInputStream;
 import java.util.zip.GZIPOutputStream;
 
 import cis5550.tools.*;
@@ -26,7 +28,6 @@ import cis5550.kvs.Row;
 
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.text.PDFTextStripper;
-import org.apache.commons.logging.LogFactory;
 
 public class Crawler {
     private static final Pattern LINK_PATTERN = Pattern.compile("<a\\s+(?:[^>]*?\\s+)?href=\"([^\"]*)\"", Pattern.CASE_INSENSITIVE);
@@ -37,6 +38,7 @@ public class Crawler {
     private static final String USER_AGENT = "cis5550-crawler";
     private static final int MAX_URLS_TO_EXTRACT = 100;
     private static final HashSet<Integer> s = new HashSet<Integer>(Arrays.asList(301, 302, 303, 307, 308));
+    private static final Path CACHE_DIRECTORY_PATH = Paths.get("cache_pages");
 
     private static final Logger logger = Logger.getLogger(Crawler.class);
     public static void run(FlameContext ctx, String[] arr) {
@@ -84,8 +86,21 @@ public class Crawler {
 
                         Row host_row = kvs.getRow("hosts", parsed_url[1]);
 
+                        String cachedContent = readFromCache(u, kvs);
+                        if (cachedContent != null) {
+                            Document doc = Jsoup.parse(cachedContent, u);
+                            String bodyText = doc.text();
+                            String limitedBodyText = bodyText.substring(0, Math.min(bodyText.length(), 10000));
+
+                            kvs.put("pt-crawl", hashKey, "url", u);
+                            kvs.put("pt-crawl", hashKey, "page", limitedBodyText);
+
+                            new_url_list = extractAndFilterUrls(doc, u);
+
+                            return new_url_list;
+                        }
+
                         if (host_row != null) {
-                            System.out.println("Test 1");
                             String robots_txt = host_row.get("robots_txt");
 
                             if (robots_txt == null) {
@@ -135,7 +150,6 @@ public class Crawler {
                             }
 
                         } else {
-                            System.out.println("Test 2");
                             host_row = new Row(parsed_url[1]);
                             Connection.Response robot_con = Jsoup.connect(parsed_url[0] + "://" + parsed_url[1] + "/robots.txt")
                                     .userAgent(USER_AGENT)
@@ -143,15 +157,11 @@ public class Crawler {
                                     .ignoreContentType(true) // Important for fetching plain text files
                                     .execute();
 
-                            System.out.println("Test 5");
-
                             if (robot_con.statusCode()  == 200) {
                                 String robotsTxt = robot_con.body();
                                 host_row.put("robots_txt", robotsTxt);
                             }
-                            System.out.println("Test 3");
                         }
-                        System.out.println("Test 4");
 
                         host_row.put("last_accessed_time", String.valueOf(System.currentTimeMillis()));
                         kvs.putRow("hosts", host_row);
@@ -195,10 +205,6 @@ public class Crawler {
                             row.put("length", contentLength);
                         }
 
-                        System.out.println("Content Type: " + contentType);
-                        System.out.println("Content Length: " + contentLength);
-                        System.out.println("Content Language: " + contentLanguage);
-
                         if (code == 200 && contentType != null && contentType.startsWith("text/html")) {
                             // Check the status code and content type
 
@@ -207,26 +213,24 @@ public class Crawler {
                             String limitedBodyText = bodyText.substring(0, Math.min(bodyText.length(), 10000));
 
                             // When saving the page content
-                            try {
-                                savePageContent(u, doc.outerHtml(), row);
-                            } catch (IOException e) {
-                                e.printStackTrace(); // Or handle the exception as appropriate
+                            if (cache){
+                                try {
+                                    savePageContent(u, doc.outerHtml(), row);
+                                } catch (IOException e) {
+                                    e.printStackTrace(); // Or handle the exception as appropriate
+                                }
                             }
+
                             row.put("page", limitedBodyText);
 
-                            Elements links = doc.select("a[href]");
+//                                new_url_list = extractAndFilterUrls(doc, u);
+                            Set<String> raw_url_list = extractAndFilterUrls(doc, u);
 
-                            for (Element link : links) {
-                                String linkHref = link.attr("href");
-                                if (isValidLink(linkHref)){
-                                    String new_url = normalize(linkHref, u);
-//                                        if (new_url.contains("en.wikipedia.org")) {
-                                    if (!new_url.isEmpty() && !kvs.existsRow("frontier", Hasher.hash(new_url))) {
-                                        // Your URL filtering conditions here
-                                        new_url_list.add(new_url);
-                                        kvs.put("frontier", Hasher.hash(new_url), "url", new_url);
-                                    }
-//                                        }
+                            for (String url : raw_url_list) {
+                                if (!kvs.existsRow("frontier", Hasher.hash(url))) {
+                                    // Save new URL to the frontier
+                                    kvs.put("frontier", Hasher.hash(url), "url", url);
+                                    new_url_list.add(url);
                                 }
                             }
                         }
@@ -241,7 +245,7 @@ public class Crawler {
 
                         kvs.putRow("pt-crawl", row);
                         kvs.put("crawled-url", hashKey, "url", u);
-//                        System.gc();
+                        System.gc();
                     } catch (Exception e) {
                         logger.error("Error in flatmap: " + u +" "+e.toString());
                     }
@@ -394,5 +398,39 @@ public class Crawler {
             PDFTextStripper stripper = new PDFTextStripper();
             return stripper.getText(document);
         }
+    }
+
+    private static String readFromCache(String url, KVSClient kvs) throws IOException {
+        // Generate the hash of the URL to use as the filename
+        String hash = Hasher.hash(url);
+        String compressedFilename = hash + ".html.gz";
+
+        // Resolve the path to the cached file
+        Path cachedFilePath = CACHE_DIRECTORY_PATH.resolve(compressedFilename);
+
+        // Check if the cached file exists
+        if (Files.exists(cachedFilePath)) {
+            // Read the content from the cached file
+            try (InputStream fileInputStream = Files.newInputStream(cachedFilePath);
+                 GZIPInputStream gzipInputStream = new GZIPInputStream(fileInputStream)) {
+
+                // Read the content from the GZIP input stream
+                return new String(gzipInputStream.readAllBytes(), StandardCharsets.UTF_8);
+            }
+        }
+
+        // If the file is not found in the cache, return null or an appropriate indicator
+        return null;
+    }
+
+    private static Set<String> extractAndFilterUrls(Document doc, String baseURL) {
+        Set<String> rawUrls = doc.select("a[href]")
+                .stream()
+                .map(link -> link.attr("href")) // Get the href value, which may be relative
+                .map(url -> normalize(url, baseURL))
+                .filter(url -> !url.isEmpty() && isValidLink(url)) // Filter out invalid and empty URLs
+                .collect(Collectors.toSet());
+
+        return rawUrls;
     }
 }
