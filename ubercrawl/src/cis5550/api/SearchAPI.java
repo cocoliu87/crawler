@@ -1,3 +1,28 @@
+/**
+ * UberCrawl Search API.
+ *
+ * The purpose of this program is to act as an API endpoint
+ * utilizing the web server functions.
+ *
+ * 1. It breaks down the query into single terms (or tokens), example:
+ * "Philadelphia Eagles Score" into {"philadelphia", "eagles", "score"}.
+ *
+ * 2. For every token, it gathers the urls from the pt-index table.
+ *
+ * 3. For every url, it hashes the url and gathers page rank, and TF/IDF values.
+ *
+ * 4. Builds a TF-DF table of possibly relevant results, then performs
+ * a cosine-similarity calculation on all of those items in the table.
+ * The score is based on the SUM of (page rank) and (cosine score).
+ * S=(PR+CS)
+ *
+ * 5. It sorts the results by descending score value (highest first).
+ *
+ * 6. Builds a JSON-formatted result and renders that as the
+ * content to the front-end.
+ *
+ * @author Sergio Garcia <gsergio@seas.upenn.edu>
+ */
 package cis5550.api;
 
 import java.io.FileInputStream;

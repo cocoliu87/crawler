@@ -1,3 +1,10 @@
+/**
+ * A helper class whose purpose is to help store
+ * the documents being searched. It stores the url,
+ * text, pagerank, and term frequencies.
+ *
+ * @author Sergio Garcia <gsergio@seas.upenn.edu>
+ */
 package cis5550.api;
 
 import cis5550.tools.Hasher;
@@ -5,11 +12,7 @@ import cis5550.tools.Helpers;
 
 import java.util.HashMap;
 
-/**
- * A helper class that will be helpful to store
- * the document being searched, the search score,
- * sorting, etc.
- */
+
 public class SearchDocument {
     private String id;
     private String url;

@@ -1,6 +1,14 @@
-package cis5550.api;
+/**
+ * A helper class whose purpose is to help represent
+ * a search result, which includes a newly-calculated
+ * cosine similarity value.
+ *
+ * It also helps with simplifying the sorting of results.
+ *
+ * @author Sergio Garcia <gsergio@seas.upenn.edu>
+ */
 
-import cis5550.tools.TFIDFDocument;
+package cis5550.api;
 
 /**
  * A helper class that will be helpful to store
@@ -17,6 +25,11 @@ public class SearchResult {
         this.cosineSimilarity = cosineSimilarity;
     }
 
+    /**
+     * This is where the cosine similarity value, and page rank
+     * are summed and used for result ranking (sorting).
+     * @return
+     */
     public double getScore() {
         return cosineSimilarity + document.getPagerank();
     }

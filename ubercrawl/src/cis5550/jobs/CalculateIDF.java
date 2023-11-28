@@ -1,17 +1,18 @@
+/**
+ * Inverted document frequency calculator program.
+ *
+ * The purpose of this job is to calculate the IDF value
+ * of all scanned documents in the RDD.
+ *
+ * @author Sergio Garcia <gsergio@seas.upenn.edu>
+ */
 package cis5550.jobs;
 
-import cis5550.external.PorterStemmer;
 import cis5550.flame.FlameContext;
 import cis5550.kvs.KVSClient;
 import cis5550.kvs.Row;
 import cis5550.tools.Hasher;
-import cis5550.tools.TFIDFDocument;
-
-import java.io.BufferedReader;
-import java.io.FileReader;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.util.*;
 
 public class CalculateIDF {
 
@@ -32,6 +33,12 @@ public class CalculateIDF {
 		context.output("totalDocuments: " + totalDocuments);
 
 
+		/**
+		 * For every word in pt-document-freq, get its
+		 * value and perform the calculation based on the
+		 * total number of documents. Then it saves the
+		 * results in the pt-term-idf table.
+		 */
 		context.fromTable("pt-document-freq", row -> {
 			String word = row.get("word");
 			String dfValue = row.get("value");
@@ -56,7 +63,6 @@ public class CalculateIDF {
 
 				System.out.println("word: " + word + ", value: " + dfValue + ", idfValue: " + idfValue);
 			}
-
 
 			return "";
 		});
