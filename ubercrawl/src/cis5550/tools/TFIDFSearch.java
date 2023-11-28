@@ -1,3 +1,13 @@
+/**
+ * Simple TF/IDF search proof of concept.
+ *
+ * The purpose of this program was to learn, develop and test the
+ * TF/IDF search algorithm. It does not play an active part of the
+ * overall project. Two data processing jobs and the API are based
+ * off of this exercise. It stays here for reference.
+ *
+ * @author Sergio Garcia <gsergio@seas.upenn.edu>
+ */
 package cis5550.tools;
 
 import cis5550.external.PorterStemmer;
@@ -139,15 +149,15 @@ public class TFIDFSearch {
         return dotProduct / (Math.sqrt(norm1) * Math.sqrt(norm2));
     }
 
-    public List<SearchResult> search(String query, int fromIndex, int toIndex) {
+    public List<TFIDFSearchResult> search(String query, int fromIndex, int toIndex) {
         Map<String, Double> queryVector = vectorize(query);
-        List<SearchResult> results = new ArrayList<>();
+        List<TFIDFSearchResult> results = new ArrayList<>();
 
         for (TFIDFDocument document : documents) {
             Map<String, Integer> docTF = termFrequencies.get(document.getId());
             double cosineSimilarity = computeCosineSimilarity(queryVector, docTF);
 
-            results.add(new SearchResult(document, cosineSimilarity));
+            results.add(new TFIDFSearchResult(document, cosineSimilarity));
         }
 
         results.sort((r1, r2) -> Double.compare(r2.getScore(), r1.getScore())); // Sort in descending order
@@ -188,10 +198,10 @@ public class TFIDFSearch {
         TFIDFSearch tfIdfSearch = new TFIDFSearch(documents);
 
         String query = "Marley";
-        List<SearchResult> searchResults = tfIdfSearch.search(query, 0, 40);
+        List<TFIDFSearchResult> searchResults = tfIdfSearch.search(query, 0, 40);
 
         System.out.println("Top search results for query \"" + query + "\":");
-        for (SearchResult result : searchResults) {
+        for (TFIDFSearchResult result : searchResults) {
             System.out.println(result.getDocument().getText());
             System.out.println(result.getDocument().getUrl());
             System.out.println(result.getDocument().getId());
