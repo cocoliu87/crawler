@@ -407,4 +407,13 @@ public class Helpers {
         }
     }
 
+    public static String encode64(String input ) {
+        return Base64.getEncoder().encodeToString(input.getBytes());
+    }
+
+    public static String decode64(String encodedString) {
+        byte[] decodedBytes = Base64.getDecoder().decode(encodedString);
+        return  new String(decodedBytes);
+    }
+
 }
