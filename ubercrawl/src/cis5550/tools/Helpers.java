@@ -350,7 +350,7 @@ public class Helpers {
 
         // Iterate through the pairs and populate the HashMap
         for (int i = 0; i < keyValuePairs.length; i += 2) {
-            String key = keyValuePairs[i];
+            String key = Hasher.hash(keyValuePairs[i]);
             int value = Integer.parseInt(keyValuePairs[i + 1]);
 
             deserializedHashMap.put(key, value);

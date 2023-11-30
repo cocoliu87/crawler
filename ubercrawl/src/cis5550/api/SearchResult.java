@@ -33,4 +33,20 @@ public class SearchResult {
     public double getScore() {
         return cosineSimilarity + document.getPagerank();
     }
+
+    public SearchDocument getDocument() {
+        return this.document;
+    }
+
+    public double getCosineSimilarity() {
+        return this.cosineSimilarity;
+    }
+
+    public String toString() {
+        return "<SearchResult>: { score: '" + getScore() + "', document: '" +  document + "', cosineSimiliarty: '" + getCosineSimilarity() + "'}";
+    }
+
+    public String toJson() {
+        return "{ " + getDocument().toJsonAttr() + ", \"score\": \"" + getScore() + "\", \"cosineSimiliarty\": \"" + getCosineSimilarity() + "\"}";
+    }
 }

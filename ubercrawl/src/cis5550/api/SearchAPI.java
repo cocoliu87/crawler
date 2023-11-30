@@ -39,7 +39,11 @@ class SearchAPI {
 
     private static final Logger logger = Logger.getLogger(SearchAPI.class);
 
-    private final HashSet<String> stopWords = new HashSet<>(List.of("a", "about", "above", "after", "again", "against", "all", "am", "an", "and", "any", "are", "arent", "as", "at", "be", "because", "been", "before", "being", "below", "between", "both", "but", "by", "cant", "cannot", "could", "couldnt", "did", "didnt", "do", "does", "doesnt", "doing", "dont", "down", "during", "each", "few", "for", "from", "further", "had", "hadnt", "has", "hasnt", "have", "havent", "having", "he", "hed", "hell", "hes", "her", "here", "heres", "hers", "herself", "him", "himself", "his", "how", "hows", "i", "id", "ill", "im", "ive", "if", "in", "into", "is", "isnt", "it", "its", "its", "itself", "lets", "me", "more", "most", "mustnt", "my", "myself", "no", "nor", "not", "of", "off", "on", "once", "only", "or", "other", "ought", "our", "ours", "ourselves", "out", "over", "own", "same", "shant", "she", "shed", "shell", "shes", "should", "shouldnt", "so", "some", "such", "than", "that", "thats", "the", "their", "theirs", "them", "themselves", "then", "there", "theres", "these", "they", "theyd", "theyll", "theyre", "theyve", "this", "those", "through", "to", "too", "under", "until", "up", "very", "was", "wasnt", "we", "wed", "well", "were", "weve", "were", "werent", "what", "whats", "when", "whens", "where", "wheres", "which", "while", "who", "whos", "whom", "why", "whys", "with", "wont", "would", "wouldnt", "you", "youd", "youll", "youre", "youve", "your", "yours", "yourself", "yourselves"));
+    private static final HashSet<String> stopWords = new HashSet<>(List.of("a", "about", "above", "after", "again", "against", "all", "am", "an", "and", "any", "are", "arent", "as", "at", "be", "because", "been", "before", "being", "below", "between", "both", "but", "by", "cant", "cannot", "could", "couldnt", "did", "didnt", "do", "does", "doesnt", "doing", "dont", "down", "during", "each", "few", "for", "from", "further", "had", "hadnt", "has", "hasnt", "have", "havent", "having", "he", "hed", "hell", "hes", "her", "here", "heres", "hers", "herself", "him", "himself", "his", "how", "hows", "i", "id", "ill", "im", "ive", "if", "in", "into", "is", "isnt", "it", "its", "its", "itself", "lets", "me", "more", "most", "mustnt", "my", "myself", "no", "nor", "not", "of", "off", "on", "once", "only", "or", "other", "ought", "our", "ours", "ourselves", "out", "over", "own", "same", "shant", "she", "shed", "shell", "shes", "should", "shouldnt", "so", "some", "such", "than", "that", "thats", "the", "their", "theirs", "them", "themselves", "then", "there", "theres", "these", "they", "theyd", "theyll", "theyre", "theyve", "this", "those", "through", "to", "too", "under", "until", "up", "very", "was", "wasnt", "we", "wed", "well", "were", "weve", "were", "werent", "what", "whats", "when", "whens", "where", "wheres", "which", "while", "who", "whos", "whom", "why", "whys", "with", "wont", "would", "wouldnt", "you", "youd", "youll", "youre", "youve", "your", "yours", "yourself", "yourselves"));
+
+    private static HashMap<String, Integer> resultsCount = new HashMap<>();
+
+    private static final int RESULTS_PER_PAGE = 20;
 
     private static String mockSearch(String mockDataFile) throws IOException {
         FileInputStream fis = new FileInputStream(mockDataFile);
@@ -68,7 +72,9 @@ class SearchAPI {
         // Compute term frequencies for the query
         HashMap<String, Integer> tf = new HashMap<>();
         for (String word : words) {
-            tf.put(word, tf.getOrDefault(word, 0) + 1);
+            String hashedWord = Hasher.hash(word);
+            int currentSearchTfValue = tf.getOrDefault(hashedWord, 0);
+            tf.put(hashedWord, currentSearchTfValue + 1);
         }
 
         // Compute TF-IDF values for each term
@@ -76,6 +82,8 @@ class SearchAPI {
             double tfidf = (1 + Math.log(tf.get(term))) * idfValues.getOrDefault(term, 0.0);
             tfidfVector.put(term, tfidf);
         }
+
+        // System.out.println("vectorize("+query+") idfValues: " + idfValues + ", tfidfVector: " + tfidfVector);
 
         return tfidfVector;
     }
@@ -130,7 +138,8 @@ class SearchAPI {
      * @return
      * @throws IOException
      */
-    public List<SearchResult> search(KVSClient kvsClient, String query, int fromIndex, int toIndex) throws IOException {
+    public static List<SearchResult> search(KVSClient kvsClient, String query, int fromIndex, int toIndex) throws IOException {
+        System.out.println("search() Performing search for: " + query);
         ArrayList<SearchResult> results = new ArrayList<>();
         HashMap<String, SearchDocument> documents = new HashMap<>();
         HashMap<String, String> urlHashes = new HashMap<>();
@@ -148,30 +157,49 @@ class SearchAPI {
 
         // 2. For each word, retrieve the urls from the index, and
         for(String stemmedQueryTerm : stemmedQueryTerms) {
+
+            // Hashed term
+            String hashedTerm = Hasher.hash(stemmedQueryTerm);
+
             // Get the urls for every term
             String urlsString = Helpers.getKvsDefault(
                 kvsClient,
                 "pt-index",
-                "" + stemmedQueryTerm,
+                "" + hashedTerm,
                 "acc",
                 ""
             );
 
             double termIdfValue = Double.parseDouble(Helpers.getKvsDefault(
                 kvsClient,
-                "pt-document-idf",
-                "" + stemmedQueryTerm,
+                "pt-term-idf",
+                "" + hashedTerm,
                 "value",
                 "0.0"
             ));
 
+            System.out.println("search() Performing index pull for stemmedQueryTerm: " + stemmedQueryTerm + ", hashed: " + hashedTerm);
+            System.out.println("search() Index's urlsString: " + urlsString + ", for hashed: " + hashedTerm);
+            System.out.println("search() Term IDF Value: " + termIdfValue);
+
+            idfValues.put(hashedTerm, termIdfValue);
+
             // Next, if the urls aren't empty, then try to get a list of them
             if(!urlsString.isEmpty()) {
+                String[] indexUrls = urlsString.split(",");
+                resultsCount.put(Hasher.hash(query), indexUrls.length);
+
+                List<String> indexSubset = new ArrayList<>(Arrays.asList(indexUrls));
+
+                if(indexUrls.length >= RESULTS_PER_PAGE) {
+                    indexSubset = indexSubset.subList(fromIndex, toIndex);
+                }
+
                 // Split it, and for every url, add the hash to our accumulator
-                for(String urlItem : urlsString.split(",")) {
-                    String urlHash = Hasher.hash(urlItem);
-                    urlHashes.put(urlHash, urlItem);
-                    idfValues.put(urlHash, termIdfValue);
+                for(String urlItem : indexSubset) {
+                    String decodedUrlItem = Helpers.decode64(urlItem);
+                    String urlHash = Hasher.hash(decodedUrlItem);
+                    urlHashes.put(urlHash, decodedUrlItem);
                 }
             }
         }
@@ -192,10 +220,15 @@ class SearchAPI {
                 ""
             );
 
-            // Parse the page rank and serializer
-            if(pageRankTermFreqStr.contains("|")) {
-                String[] documentTuple = pageRankTermFreqStr.split("|", 3);
+            pageRankTermFreqStr = "0.0@" + pageRankTermFreqStr + "@Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.";
 
+
+            // Parse the page rank and serializer
+            if(pageRankTermFreqStr.contains("@")) {
+                // First we split the string into its three parts
+                String[] documentTuple = pageRankTermFreqStr.split("@");
+
+                // First part is page rank, the term freq map, and text
                 String pageRankStrPart = documentTuple[0];
                 String tfStrPart = documentTuple[1];
                 String text = documentTuple[2];
@@ -204,34 +237,30 @@ class SearchAPI {
                     "" + pageRankStrPart,
                     "" + urlHashes.get(urlHash),
                     "" + text,
-                    "" + pageRankStrPart
+                    "" + tfStrPart
                 );
 
                 documents.put(urlHash, parsedDoc);
-
-                // Now put the values into their maps
-//                documentsTermFreq.put(urlHash, Helpers.deserializeHashMap(tfStrPart));
-//                pageRank.put(urlHash, Double.parseDouble(pageRankStrPart));
             }
         }
+
 
         /**
          * II. For each document, calculate cosine similarity
          */
 
-        // 1. For every page from the index
-
-
         /**
-         * For every document found
+         * For every document we have collected
          */
         for (String urlHash : documents.keySet()) {
             // Get the document in question
             SearchDocument currentDocument = documents.get(urlHash);
-            Map<String, Integer> docTF = currentDocument.getTermFreq();
-            //
+
+            // Vectorize search terms
             HashMap<String, Double> queryVector = vectorize(query, idfValues);
-            double cosineSimilarity = computeCosineSimilarity(queryVector, docTF);
+            HashMap<String, Integer> docTf = currentDocument.getTermFreq();
+
+            double cosineSimilarity = computeCosineSimilarity(queryVector, docTf);
 
             SearchResult sr = new SearchResult(
                 currentDocument,
@@ -241,35 +270,122 @@ class SearchAPI {
             results.add(sr);
         }
 
-        results.sort((r1, r2) -> Double.compare(r2.getScore(), r1.getScore())); // Sort in descending order
-        return results.subList(fromIndex, toIndex);
+        // Lastly, sort by score (highest first, descending order)
+        results.sort((r1, r2) -> Double.compare(r2.getScore(), r1.getScore()));
+
+        System.out.println("Results: " + results);
+        return results;
+    }
+
+    public static String[] attributesToJson(HashMap<String, String> attributes) {
+        List<String> attrs = new ArrayList<>();
+
+        for(String k : attributes.keySet()) {
+            attrs.add("\"k\":\"v\"");
+        }
+
+        return attrs.toArray(String[]::new);
+    }
+
+    /**
+     * Given a result list, it turns the list into a readable/parsable json document
+     * @param attributes
+     * @param results
+     * @return
+     */
+    public static String generateJsonResponse(HashMap<String, String> attributes, List<SearchResult> results) {
+        return """
+            {
+                %ATTRIBUTES%
+                "total": %TOTAL_RESULTS%,
+                "results": [%RESULTS%]
+            }    
+        """
+        // Insert any attributes if they are present
+        .replaceFirst("%ATTRIBUTES%",
+            String.join(",",
+                attributesToJson(attributes)
+            )
+        )
+        // Then we patch in the total results
+        .replaceFirst("%TOTAL_RESULTS%", Integer.toString(resultsCount.get(Hasher.hash(query))))
+        // Then we provide an object array with the actual results
+        .replaceFirst("%RESULTS%",
+            String.join(",",
+                // This basically gathers every result as a json string, joins with a comma
+                results.stream().map(item -> item.toJson()).toArray(String[]::new)
+            )
+        );
+    }
+
+    /**
+     * Prepares arguments for actual search
+     * @param query
+     * @param page
+     * @return
+     * @throws IOException
+     */
+    private static String performSearch(String query, String page) throws IOException {
+        // Establish connection to host
+        KVSClient kvsClient = new KVSClient("localhost:8000");
+
+        // Calculate the current array indexes (for pagination)
+        int pageNum = 0, fromIndex = 0, toIndex = 0, resultsPerPage = RESULTS_PER_PAGE;
+
+        if(page != null && !page.isEmpty()) {
+            try {
+                pageNum = Math.max(Math.abs(Integer.parseInt(page)), 1) - 1;
+            } catch (Exception e) {
+                pageNum = 0;
+            }
+        }
+
+        fromIndex = pageNum * resultsPerPage;
+        toIndex = fromIndex + (resultsPerPage - 1);
+
+        HashMap<String, String> attributes = new HashMap<>();
+        attributes.put("query", query.replaceAll("\"", ""));
+        attributes.put("page", page);
+        attributes.put("fromIndex", "" + fromIndex);
+        attributes.put("toIndex", "" + toIndex);
+
+        // Perform search
+        List<SearchResult> results = search(
+            kvsClient,
+            query,
+            fromIndex,
+            toIndex
+        );
+
+        // Display results
+        return generateJsonResponse(attributes, results);
     }
 
 
-
-    public static void main(String args[]) throws IOException {
+    public static void main(String args[]) {
         // Initialize port
         port(Integer.parseInt(args[0]));
-        // Initialize Mock data file path
-        String mockDataFile = args[1];
-
-        // Establish connection to host
-        KVSClient kvsClient = new KVSClient("localhost:8000");
 
         staticFiles.location("static");
 
         post("/api/search", (req,res) -> {
-            String searchTerm = req.queryParams("term");
-            res.header("X-SearchTerm", searchTerm);
+            // Gather the query and page number (default 1)
+            String query = req.queryParams("query");
+            String page = req.queryParams("page");
+
+            // Display results
             res.type("application/json");
-            return mockSearch(mockDataFile);
+            return performSearch(query, page);
         });
 
         get("/api/search", (req,res) -> {
-            String searchTerm = req.queryParams("term");
-            res.header("X-SearchTerm", searchTerm);
+            // Gather the query and page number (default 1)
+            String query = req.queryParams("query");
+            String page = req.queryParams("page");
+
+            // Display results
             res.type("application/json");
-            return mockSearch(mockDataFile);
+            return performSearch(query, page);
         });
     }
 }

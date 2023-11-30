@@ -50,4 +50,12 @@ public class SearchDocument {
     public HashMap<String, Integer> getTermFreq() {
         return this.termFrequencies;
     }
+
+    public String toString() {
+        return "<SearchDocument>: { id: '" + getId() + "', url: '" +  getUrl() + "', text: '" + getText() + "', pagerank: '" + getPagerank() + "'}";
+    }
+
+    public String toJsonAttr() {
+        return "\"id\": \"" + getId() + "\", \"url\": \"" +  getUrl() + "\", \"text\": \"" + getText() + "\", \"pagerank\": \"" + getPagerank() + "\"";
+    }
 }
