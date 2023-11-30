@@ -281,7 +281,7 @@ class SearchAPI {
         List<String> attrs = new ArrayList<>();
 
         for(String k : attributes.keySet()) {
-            attrs.add("\"k\":\"v\"");
+            attrs.add("\"" + k + "\":\"" + attributes.get(k).trim() + "\"");
         }
 
         return attrs.toArray(String[]::new);
@@ -296,7 +296,7 @@ class SearchAPI {
     public static String generateJsonResponse(HashMap<String, String> attributes, List<SearchResult> results) {
         return """
             {
-                %ATTRIBUTES%
+                %ATTRIBUTES% ,
                 "total": %TOTAL_RESULTS%,
                 "results": [%RESULTS%]
             }    
@@ -308,7 +308,7 @@ class SearchAPI {
             )
         )
         // Then we patch in the total results
-        .replaceFirst("%TOTAL_RESULTS%", Integer.toString(resultsCount.get(Hasher.hash(query))))
+        .replaceFirst("%TOTAL_RESULTS%", Integer.toString(resultsCount.get(Hasher.hash(attributes.get("query")))))
         // Then we provide an object array with the actual results
         .replaceFirst("%RESULTS%",
             String.join(",",
