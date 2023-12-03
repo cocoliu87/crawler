@@ -225,18 +225,29 @@ public class Crawler {
                             }
 
                             // Remove script and style elements to clean up the document
-                            doc.select("script, style").remove();
+//                            doc.select("script, style").remove();
+
+//                            String htmlContent = doc.html();
 
                             String bodyText = doc.text();
-//                                bodyText = bodyText.length() > 10000 ? bodyText.substring(0, 10000) : bodyText;
+                            bodyText = bodyText.length() > 10000 ? bodyText.substring(0, 10000) : bodyText;
 
-                            row.put("page", bodyText.getBytes(StandardCharsets.UTF_8));
+//                            row.put("html", htmlContent);
+                            row.put("page", bodyText);
 
 //                                new_url_list = extractAndFilterUrls(doc, u);
                             Set<String> raw_url_list = extractAndFilterUrls(doc, u);
 
+                            String delimiter = "\n";
+                            String joinedUrls = String.join(delimiter, raw_url_list);
+
+                            // Write this string to the "pt" table
+                            row.put("children_url", joinedUrls); // Assuming 'page_urls' is the field for storing URLs
+
                             for (String url : raw_url_list) {
-                                if (!kvs.existsRow("frontier", Hasher.hash(url))) {
+                                String hashed_url = Hasher.hash(url);
+//                                row.put("children url", hashed_url);
+                                if (!kvs.existsRow("frontier", hashed_url)) {
                                     // Save new URL to the frontier
                                     kvs.put("frontier", Hasher.hash(url), "url", url);
                                     new_url_list.add(url);
