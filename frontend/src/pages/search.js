@@ -140,6 +140,7 @@ const Page = () => {
           />
         </div>}
         {!isLoading && <Container maxWidth="xl">
+          {totalResults > 0 && <p>Total Results: {totalResults}</p>}
           {(searchResults ?? []).map((item) => (
             <Item
               key={item.id}
@@ -151,6 +152,7 @@ const Page = () => {
               score={item?.score}
             />
           ))}
+          {(searchResults ?? []).length === 0 && <div>No results, please enter search keywords.</div>}
         </Container>}
       </Box>
     </Fragment>
