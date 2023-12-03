@@ -14,7 +14,6 @@
  */
 package cis5550.jobs;
 
-import cis5550.external.PorterStemmer;
 import cis5550.flame.*;
 import cis5550.tools.Hasher;
 import cis5550.tools.Helpers;
@@ -22,10 +21,6 @@ import cis5550.tools.Helpers;
 import java.util.*;
 
 public class Indexer {
-
-	// Stop words, taken from 
-	private static final Set<String> stopWords = new HashSet<>(List.of("a", "about", "above", "after", "again", "against", "all", "am", "an", "and", "any", "are", "arent", "as", "at", "be", "because", "been", "before", "being", "below", "between", "both", "but", "by", "cant", "cannot", "could", "couldnt", "did", "didnt", "do", "does", "doesnt", "doing", "dont", "down", "during", "each", "few", "for", "from", "further", "had", "hadnt", "has", "hasnt", "have", "havent", "having", "he", "hed", "hell", "hes", "her", "here", "heres", "hers", "herself", "him", "himself", "his", "how", "hows", "i", "id", "ill", "im", "ive", "if", "in", "into", "is", "isnt", "it", "its", "its", "itself", "lets", "me", "more", "most", "mustnt", "my", "myself", "no", "nor", "not", "of", "off", "on", "once", "only", "or", "other", "ought", "our", "ours", "ourselves", "out", "over", "own", "same", "shant", "she", "shed", "shell", "shes", "should", "shouldnt", "so", "some", "such", "than", "that", "thats", "the", "their", "theirs", "them", "themselves", "then", "there", "theres", "these", "they", "theyd", "theyll", "theyre", "theyve", "this", "those", "through", "to", "too", "under", "until", "up", "very", "was", "wasnt", "we", "wed", "well", "were", "weve", "were", "werent", "what", "whats", "when", "whens", "where", "wheres", "which", "while", "who", "whos", "whom", "why", "whys", "with", "wont", "would", "wouldnt", "you", "youd", "youll", "youre", "youve", "your", "yours", "yourself", "yourselves"));
-
 	/**
 	 * As a first step, create the class for the indexer, and, in its run method.
 	 * @param context
@@ -33,6 +28,20 @@ public class Indexer {
 	 * @throws Exception
 	 */
 	public static void run(FlameContext context, String[] args) throws Exception {
+		HashSet<String> englishWords;
+
+		// Load English Words if provided
+		if(args.length > 0 && args[0] != null && !args[0].isEmpty()) {
+			englishWords = Helpers.loadWordsFromFile(args[0]);
+		} else {
+			englishWords = new HashSet<>();
+		}
+
+		if(englishWords.isEmpty()) {
+			context.output("English words file not found: " + args[0] + ". Needs to be first argument.");
+			return;
+		}
+
 		/**
 		 * Load the data from the pt-crawl table. Ideally, we would like a PairRDD of (u, p) pairs,
 		 * where u is a normalized URL and p is the contents of the corresponding page,
@@ -99,28 +108,21 @@ public class Indexer {
 				// convert everything to lower case
 				page = page.toLowerCase();
 
+				String[] words = Helpers.getWords(page, englishWords);
+
 				/**
 				 * The resulting PairRDD will still contain lots of (w, ui) pairs,
 				 * with the same word w but different URLs ui.
 				 */
 				// Break the page contents into words
-				Arrays.stream(page.split("\\s+")).forEach(word -> {
-
-					// If the word is null, then make it an empty string
-					String cleanWord = word != null
-						? stemWord(word.trim().toLowerCase())
-						: "";
-
-					if(!cleanWord.isEmpty() && !stopWords.contains(cleanWord)) {
-						if(url != null && !url.isEmpty()) {
-							// For each word, crate a unique pair. Uniqueness guaranteed by HashSet.
-							wordUrlPairs.add(
-								// Note that the word is now hashed
-								new FlamePair(Hasher.hash(cleanWord), url)
-							);
-						}
+				Arrays.stream(words).forEach(word -> {
+					if(url != null && !url.isEmpty()) {
+						// For each word, crate a unique pair. Uniqueness guaranteed by HashSet.
+						wordUrlPairs.add(
+							// Note that the word is now hashed
+							new FlamePair(Hasher.hash(word), url)
+						);
 					}
-
 				});
 				// Output the unique set for folding
 				return wordUrlPairs;
@@ -142,16 +144,5 @@ public class Indexer {
 			 * to pt-index using the saveAsTable method.
 			 */
 			.saveAsTable("pt-index");
-	}
-
-	public static String stemWord(String word) {
-		PorterStemmer s = new PorterStemmer();
-		for (char ch: word.toCharArray()) {
-			if (Character.isLetter(ch)) {
-				s.add(ch);
-			}
-		}
-		s.stem();
-		return s.toString();
 	}
 }

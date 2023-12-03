@@ -9,7 +9,6 @@
  */
 package cis5550.jobs;
 
-import cis5550.external.PorterStemmer;
 import cis5550.flame.FlameContext;
 import cis5550.kvs.KVSClient;
 import cis5550.kvs.Row;
@@ -22,10 +21,6 @@ import java.util.*;
 
 
 public class CalculateTF {
-	// Taken from pythons stop words library, also found in other nlp libraries.
-	private static Set<String> stopWords = Helpers.loadWordsFromFile("./dictStopWords.txt");;
-	private static Set<String> englishWords = Helpers.loadWordsFromFile("./dict20k.txt");
-
 	private static final String documentFrequenciesTable = "pt-document-freq";
 	private static final String termFrequenciesTable = "pt-term-freq";
 
@@ -41,6 +36,19 @@ public class CalculateTF {
 
 		// Retrieve the coordinator
 		String kvsCoordinator = context.getKVS().getCoordinator();
+		HashSet<String> englishWords;
+
+		// Load English Words if provided
+		if(args.length > 0 && args[0] != null && !args[0].isEmpty()) {
+			englishWords = Helpers.loadWordsFromFile(args[0]);
+		} else {
+            englishWords = new HashSet<>();
+        }
+
+        if(englishWords.isEmpty()) {
+			context.output("English words file not found: " + args[0] + ". Needs to be first argument.");
+			return;
+		}
 
 		/**
 		 * Main loop, for every row in the pt-crawl table it
@@ -48,110 +56,71 @@ public class CalculateTF {
 		 *
 		 */
 		context.fromTable("pt-crawl", row -> {
+
 			// Retrieve the url columnm and page column
 			String url = row.get("url");
-			String pageString = cleanText(row.get("page"));
+			String rawText = row.get("page");
+
+			if(rawText == null || rawText.isEmpty()) return "";
+
 
 			// Initialize KVS client
 			KVSClient kvsClient = new KVSClient(kvsCoordinator);
 
 			// Calculate the current document's TF and serialize
-			HashMap<String, Integer> tf = getDocumentTF(pageString);
+			HashMap<String, Integer> tf = getDocumentTF(rawText, englishWords);
 			String termFreq = Helpers.serializeHashMap(tf);
-			String pageRankTermFreq = "";
+			StringBuilder entryBody = new StringBuilder();
+
+			System.out.println("TermFreq: " + tf);
+
 
 			// Next try to put term frequency into RDD
 			try {
 				// Retrieve the page rank value for this url
-				String pageRank = Helpers.getKvsDefault(
-					kvsClient,
-					"pt-pageranks",
-					Hasher.hash(url),
-					"rank",
-					"0.0"
-				);
+//				String pageRank = Helpers.getKvsDefault(
+//					kvsClient,
+//					"pt-pageranks",
+//					Hasher.hash(url),
+//					"rank",
+//					"0.0"
+//				);
+
+				// Generate cache and page rank values
+				String textCache = rawText.substring(0, Math.min(500, rawText.length()));
+				String pageRank = "0.0";
 
 				/**
 				 * Now combine both PR and TF into a formatted string for
 				 * "deserialization". This is going to help make thousands less
 				 * network calls. Then insert document into RDD.
 				 */
-				pageRankTermFreq = "pagerank:" + pageRank  + "@" + termFreq;
-				putTermFreq(kvsClient, url, pageRankTermFreq);
+				entryBody
+					.append(pageRank)
+					.append("@")
+					.append(termFreq)
+					.append("@")
+					.append(textCache);
+
+				putTermFreq(kvsClient, url, entryBody.toString());
 
 				/**
 				 * Next we need to get and update the current document frequency (TF)
 				 */
 				for (String word : tf.keySet()) {
 					int currentVal = getCurrentDocFreq(kvsClient, word, 0);
-					System.out.println("Current value for '" + word + "': " + currentVal);
+//					System.out.println("Current value for '" + word + "': " + currentVal);
 					putDocumentFreqValue(kvsClient, word, currentVal + 1);
-					System.out.println("New value for '" + word + "': " + (currentVal + 1));
+//					System.out.println("New value for '" + word + "': " + (currentVal + 1));
 				}
 			} catch (IOException e) {
 				throw new RuntimeException(e);
 			}
 
-			String output = Hasher.hash(url) + " >> " + pageRankTermFreq;
-			System.out.println("output: " + output);
+			System.out.println("output: " + Hasher.hash(url) + " >> " + entryBody.toString());
 			return "";
 		});
 
-	}
-
-	/**
-	 * Removes any characters that aren't A-Z
-	 * @param term - The term to be cleaned
-	 * @return
-	 */
-	private static String cleanText(String term) {
-		if(term != null && !term.isEmpty()) {
-			return term.replaceAll("[^a-zA-Z]", " ").toLowerCase();
-		}
-		return "";
-	}
-
-	/**
-	 * Stems the word using PorterStemmer
-	 * @param term
-	 * @return
-	 */
-	private static String stemWord(String term) {
-		PorterStemmer porterStemmer = new PorterStemmer();
-		char[] charArray = term.toLowerCase().trim().toCharArray();
-		porterStemmer.add(charArray, charArray.length);
-		porterStemmer.stem();
-		return porterStemmer.toString();
-	}
-
-	/**
-	 * Retrieves the words from a document text.
-	 * - Lower-cases the text
-	 * - Splits by spaces
-	 * - removes stop words
-	 * - Removes non-common words
-	 * - Removes empty words
-	 * - Removes single characters
-	 * - Stems the words in the document
-	 *
-	 * @param document - The long text as part of the document.
-	 * @return
-	 */
-	private static String[] getWords(String document) {
-		if(document == null || document.isEmpty()) return new String[0];
-
-		String[] firstSet = document
-			.toLowerCase()
-			.split("\\s+");
-
-		return Arrays
-			.stream(firstSet)
-			.filter(word -> !stopWords.contains(word))
-			.filter(word -> !englishWords.contains(word))
-			.filter(word -> !word.isEmpty())
-			.filter(word -> !(word.length() < 2))
-			.map(CalculateTF::stemWord)
-			.toArray(String[]::new);
 	}
 
 	/**
@@ -159,9 +128,9 @@ public class CalculateTF {
 	 * @param documentContent - Raw text of the document
 	 * @return
 	 */
-	private static HashMap<String, Integer> getDocumentTF(String documentContent) {
+	private static HashMap<String, Integer> getDocumentTF(String documentContent,  HashSet<String> englishWords) {
 		HashMap<String, Integer> tf = new HashMap<>();
-		String[] words = getWords(documentContent);
+		String[] words = Helpers.getWords(documentContent, englishWords);
 
 		// Compute term frequencies for the document
 		for (String word : words) {
@@ -179,7 +148,7 @@ public class CalculateTF {
 	 */
 	private static void putTermFreq(KVSClient kvs, String url, String docTf) throws IOException {
 		String urlHash = Hasher.hash(url);
-		System.out.println("Writing tf for '" +urlHash + "': " + docTf);
+//		System.out.println("Writing tf for '" +urlHash + "': " + docTf);
 		Row tfRow = new Row(urlHash);
 		tfRow.put("url", url);
 		tfRow.put("term_freq", docTf);
@@ -210,7 +179,7 @@ public class CalculateTF {
 			currentValue = "0";
 		}
 
-		System.out.println("getCurrentDocFreq('" + word + "'): '" + currentValue + "'");
+//		System.out.println("getCurrentDocFreq('" + word + "'): '" + currentValue + "'");
 
 		try {
 			return Integer.parseInt(currentValue);

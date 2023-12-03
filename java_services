@@ -3,6 +3,8 @@
 set -o errexit;
 
 JAVA_COMMAND="java -cp ubercrawl/lib/flame.jar:ubercrawl/lib/kvs.jar:ubercrawl/lib/jsoup-1.16.2.jar:ubercrawl/lib/webserver.jar:ubercrawl/lib/ubercrawl.jar";
+EXTERNAL_DRIVE_PATH="/Volumes/Samsung_T5/Development/final/ubercrawl"
+
 
 function __clear_garbage() {
     echo "Clearing garbage...";
@@ -45,7 +47,7 @@ function __ubercrawl_start_flame() {
 
 function __ubercrawl_start_api() {
     echo "Starting: cis5550.api.SearchAPI";
-    $JAVA_COMMAND cis5550.api.SearchAPI 8081 ubercrawl/static/MockData.json &
+    $JAVA_COMMAND cis5550.api.SearchAPI 8081 ./dict20k.txt &
     sleep 1;
 }
 
@@ -139,7 +141,7 @@ function runIndexer() {
     cis5550.flame.FlameSubmit \
     localhost:9000 \
     ubercrawl/lib/ubercrawl.jar \
-      cis5550.jobs.Indexer;
+      cis5550.jobs.Indexer ./dict20k.txt;
 }
 
 function runPageRank() {
@@ -155,7 +157,7 @@ function CalculateTF() {
     cis5550.flame.FlameSubmit \
     localhost:9000 \
     ubercrawl/lib/ubercrawl.jar \
-    cis5550.jobs.CalculateTF;
+    cis5550.jobs.CalculateTF ./dict20k.txt;
 }
 
 function CalculateIDF() {
@@ -165,5 +167,29 @@ function CalculateIDF() {
     ubercrawl/lib/ubercrawl.jar \
     cis5550.jobs.CalculateIDF;
 }
+
+function diskBuild() {
+    echo "diskBuild: Building";
+    build;
+    echo "diskBuild: Done building";
+    echo "diskBuild: Copying libraries to disk";
+    cp ubercrawl/lib/*.jar "${EXTERNAL_DRIVE_PATH}/ubercrawl/lib";
+    echo "diskBuild: Done";
+}
+
+function diskRun() {
+    COMMAND=$1;
+    echo "diskRun: Building";
+    diskBuild;
+    echo "diskRun: Capturing CWD";
+    CURRENT_DIR=`pwd`;
+
+    $COMMAND;
+
+    echo "diskRun: Restoring CWD";
+    cd $CURRENT_DIR;
+}
+
+
 
 echo "UberCrawl Java Services: $@" && $@;

@@ -39,7 +39,7 @@ class SearchAPI {
 
     private static final Logger logger = Logger.getLogger(SearchAPI.class);
 
-    private static final HashSet<String> stopWords = new HashSet<>(List.of("a", "about", "above", "after", "again", "against", "all", "am", "an", "and", "any", "are", "arent", "as", "at", "be", "because", "been", "before", "being", "below", "between", "both", "but", "by", "cant", "cannot", "could", "couldnt", "did", "didnt", "do", "does", "doesnt", "doing", "dont", "down", "during", "each", "few", "for", "from", "further", "had", "hadnt", "has", "hasnt", "have", "havent", "having", "he", "hed", "hell", "hes", "her", "here", "heres", "hers", "herself", "him", "himself", "his", "how", "hows", "i", "id", "ill", "im", "ive", "if", "in", "into", "is", "isnt", "it", "its", "its", "itself", "lets", "me", "more", "most", "mustnt", "my", "myself", "no", "nor", "not", "of", "off", "on", "once", "only", "or", "other", "ought", "our", "ours", "ourselves", "out", "over", "own", "same", "shant", "she", "shed", "shell", "shes", "should", "shouldnt", "so", "some", "such", "than", "that", "thats", "the", "their", "theirs", "them", "themselves", "then", "there", "theres", "these", "they", "theyd", "theyll", "theyre", "theyve", "this", "those", "through", "to", "too", "under", "until", "up", "very", "was", "wasnt", "we", "wed", "well", "were", "weve", "were", "werent", "what", "whats", "when", "whens", "where", "wheres", "which", "while", "who", "whos", "whom", "why", "whys", "with", "wont", "would", "wouldnt", "you", "youd", "youll", "youre", "youve", "your", "yours", "yourself", "yourselves"));
+    private static HashSet<String> englishWords = new HashSet<>();
 
     private static HashMap<String, Integer> resultsCount = new HashMap<>();
 
@@ -153,7 +153,7 @@ class SearchAPI {
          */
 
         // 1. The query needs to be broken down to stemmed terms
-        String[] stemmedQueryTerms = Helpers.getWords(query);
+        String[] stemmedQueryTerms = Helpers.getWords(query, englishWords);
 
         // 2. For each word, retrieve the urls from the index, and
         for(String stemmedQueryTerm : stemmedQueryTerms) {
@@ -220,9 +220,6 @@ class SearchAPI {
                 ""
             );
 
-            pageRankTermFreqStr = "0.0@" + pageRankTermFreqStr + "@Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.";
-
-
             // Parse the page rank and serializer
             if(pageRankTermFreqStr.contains("@")) {
                 // First we split the string into its three parts
@@ -236,7 +233,7 @@ class SearchAPI {
                 SearchDocument parsedDoc = new SearchDocument(
                     "" + pageRankStrPart,
                     "" + urlHashes.get(urlHash),
-                    "" + text,
+                    "" + text.replaceAll("\"", ""),
                     "" + tfStrPart
                 );
 
@@ -294,28 +291,36 @@ class SearchAPI {
      * @return
      */
     public static String generateJsonResponse(HashMap<String, String> attributes, List<SearchResult> results) {
-        return """
-            {
-                %ATTRIBUTES% ,
-                "total": %TOTAL_RESULTS%,
-                "results": [%RESULTS%]
-            }    
-        """
-        // Insert any attributes if they are present
-        .replaceFirst("%ATTRIBUTES%",
-            String.join(",",
+
+        String attributesStr = String.join(",",
                 attributesToJson(attributes)
-            )
-        )
-        // Then we patch in the total results
-        .replaceFirst("%TOTAL_RESULTS%", Integer.toString(resultsCount.get(Hasher.hash(attributes.get("query")))))
-        // Then we provide an object array with the actual results
-        .replaceFirst("%RESULTS%",
-            String.join(",",
-                // This basically gathers every result as a json string, joins with a comma
-                results.stream().map(item -> item.toJson()).toArray(String[]::new)
+        );
+
+        String totalResults = Integer.toString(
+            resultsCount.getOrDefault(
+                Hasher.hash(attributes.get("query")),
+                0
             )
         );
+
+        String resultsJson = String.join(",",
+            // This basically gathers every result as a json string, joins with a comma
+            results.stream().map(item -> item.toJson()).toArray(String[]::new)
+        );
+
+        System.out.println("attributesStr: " + attributesStr);
+        System.out.println("totalResults: " + totalResults);
+        System.out.println("resultsJson: " + resultsJson);
+
+        String response = "{" +
+                attributesStr + ",\n" +
+                "\"total\": " +  totalResults + ", \n" +
+                "\"results\": [" + resultsJson + "] \n" +
+            "}"
+        ;
+
+        System.out.println("response: " + response);
+        return response;
     }
 
     /**
@@ -357,6 +362,8 @@ class SearchAPI {
             toIndex
         );
 
+        System.out.println("Results: " + results);
+
         // Display results
         return generateJsonResponse(attributes, results);
     }
@@ -365,6 +372,18 @@ class SearchAPI {
     public static void main(String args[]) {
         // Initialize port
         port(Integer.parseInt(args[0]));
+
+        // Load English Words if provided
+        if(args.length > 1 && args[1] != null && !args[1].isEmpty()) {
+            englishWords = Helpers.loadWordsFromFile(args[1]);
+        } else {
+            englishWords = new HashSet<>();
+        }
+
+        if(englishWords.isEmpty()) {
+            System.out.println("English words file not found: " + args[0] + ". Needs to be first argument.");
+            return;
+        }
 
         staticFiles.location("static");
 

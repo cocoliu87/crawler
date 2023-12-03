@@ -15,9 +15,12 @@ import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import java.util.Random;
+
 public class Helpers {
 
-    public static final HashSet<String> stopWords = new HashSet<>(List.of("a", "about", "above", "after", "again", "against", "all", "am", "an", "and", "any", "are", "arent", "as", "at", "be", "because", "been", "before", "being", "below", "between", "both", "but", "by", "cant", "cannot", "could", "couldnt", "did", "didnt", "do", "does", "doesnt", "doing", "dont", "down", "during", "each", "few", "for", "from", "further", "had", "hadnt", "has", "hasnt", "have", "havent", "having", "he", "hed", "hell", "hes", "her", "here", "heres", "hers", "herself", "him", "himself", "his", "how", "hows", "i", "id", "ill", "im", "ive", "if", "in", "into", "is", "isnt", "it", "its", "its", "itself", "lets", "me", "more", "most", "mustnt", "my", "myself", "no", "nor", "not", "of", "off", "on", "once", "only", "or", "other", "ought", "our", "ours", "ourselves", "out", "over", "own", "same", "shant", "she", "shed", "shell", "shes", "should", "shouldnt", "so", "some", "such", "than", "that", "thats", "the", "their", "theirs", "them", "themselves", "then", "there", "theres", "these", "they", "theyd", "theyll", "theyre", "theyve", "this", "those", "through", "to", "too", "under", "until", "up", "very", "was", "wasnt", "we", "wed", "well", "were", "weve", "were", "werent", "what", "whats", "when", "whens", "where", "wheres", "which", "while", "who", "whos", "whom", "why", "whys", "with", "wont", "would", "wouldnt", "you", "youd", "youll", "youre", "youve", "your", "yours", "yourself", "yourselves"));
+    public static HashSet<String> stopWords = new HashSet<>(List.of("a", "about", "above", "after", "again", "against", "all", "am", "an", "and", "any", "are", "arent", "as", "at", "be", "because", "been", "before", "being", "below", "between", "both", "but", "by", "cant", "cannot", "could", "couldnt", "did", "didnt", "do", "does", "doesnt", "doing", "dont", "down", "during", "each", "few", "for", "from", "further", "had", "hadnt", "has", "hasnt", "have", "havent", "having", "he", "hed", "hell", "hes", "her", "here", "heres", "hers", "herself", "him", "himself", "his", "how", "hows", "i", "id", "ill", "im", "ive", "if", "in", "into", "is", "isnt", "it", "its", "its", "itself", "lets", "me", "more", "most", "mustnt", "my", "myself", "no", "nor", "not", "of", "off", "on", "once", "only", "or", "other", "ought", "our", "ours", "ourselves", "out", "over", "own", "same", "shant", "she", "shed", "shell", "shes", "should", "shouldnt", "so", "some", "such", "than", "that", "thats", "the", "their", "theirs", "them", "themselves", "then", "there", "theres", "these", "they", "theyd", "theyll", "theyre", "theyve", "this", "those", "through", "to", "too", "under", "until", "up", "very", "was", "wasnt", "we", "wed", "well", "were", "weve", "were", "werent", "what", "whats", "when", "whens", "where", "wheres", "which", "while", "who", "whos", "whom", "why", "whys", "with", "wont", "would", "wouldnt", "you", "youd", "youll", "youre", "youve", "your", "yours", "yourself", "yourselves"));
+    public static HashSet<String> englishWords = new HashSet<>();
 
     public static String removeQuotes(String inputHtml) {
         return inputHtml
@@ -305,7 +308,11 @@ public class Helpers {
         return new ArrayList<>(outputSet);
     }
 
-    public static synchronized HashSet<String> loadWordsFromFile(String filePath) {
+    public static void loadEnglishWords(String filePath) {
+        englishWords = loadWordsFromFile(filePath);
+    }
+
+    public static HashSet<String> loadWordsFromFile(String filePath) {
         String commentIdentifier = "#!comment:";
 
         HashSet<String> wordSet = new HashSet<>();
@@ -375,6 +382,17 @@ public class Helpers {
         return serializedString.toString();
     }
 
+    /**
+     * Removes any characters that aren't A-Z
+     * @param term - The term to be cleaned
+     * @return
+     */
+    public static String cleanText(String term) {
+        if(term != null && !term.isEmpty()) {
+            return term.replaceAll("[^a-zA-Z]", " ").toLowerCase();
+        }
+        return "";
+    }
 
     public static String stemWord(String term) {
         PorterStemmer porterStemmer = new PorterStemmer();
@@ -385,17 +403,48 @@ public class Helpers {
     }
 
     public static String[] getWords(String document) {
+        if(document == null) {
+            System.out.println("Document is null");
+            document = "";
+        }
+
         String[] firstSet = document
                 .toLowerCase()
                 .replaceAll("\\p{Punct}", "")
                 .split("\\s+");
 
         return Arrays
-                .stream(firstSet)
-                .filter(word -> !stopWords.contains(word))
-                .filter(word -> !word.isEmpty())
-                .map(Helpers::stemWord)
-                .toArray(String[]::new);
+            .stream(firstSet)
+            .map(Helpers::cleanText)
+            .filter(word -> !word.isEmpty())
+            .filter(word -> !(word.length() < 4))
+            .filter(word -> !stopWords.contains(word))
+            .map(String::trim)
+            .map(Helpers::stemWord)
+            .toArray(String[]::new);
+    }
+
+    public static String[] getWords(String document,  HashSet<String> englishWords) {
+        if(document == null) {
+            System.out.println("Document is null");
+            document = "";
+        }
+
+        String[] firstSet = document
+                .toLowerCase()
+                .replaceAll("\\p{Punct}", "")
+                .split("\\s+");
+
+        return Arrays
+            .stream(firstSet)
+            .map(Helpers::cleanText)
+            .filter(word -> !word.isEmpty())
+            .filter(word -> !(word.length() < 4))
+            .filter(word -> !stopWords.contains(word))
+            .filter(englishWords::contains)
+            .map(String::trim)
+            .map(Helpers::stemWord)
+            .toArray(String[]::new);
     }
 
     public static String getKvsDefault(KVSClient kvs, String table, String rowKey, String columnName, String defaultVal) throws IOException {
@@ -414,6 +463,12 @@ public class Helpers {
     public static String decode64(String encodedString) {
         byte[] decodedBytes = Base64.getDecoder().decode(encodedString);
         return  new String(decodedBytes);
+    }
+
+    public static String randomPageRank() {
+        Random rand = new Random();
+        double randVal = rand.nextDouble(0.0, 10.0);
+        return Double.toString(randVal);
     }
 
 }
