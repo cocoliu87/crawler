@@ -1,12 +1,13 @@
 import React from "react";
 import { Card, CardContent, Typography, Link } from "@mui/material";
 
-export default function Item({ id, url, text, pagerank, score, cosineSimiliarty }) {
+export default function Item({ id, index, url, text, pagerank, score, cosineSimiliarty }) {
   return (
     <div>
       <Card>
         <CardContent>
           <Typography variant="h5" component="div">
+            {index}
             <Link href={`${url}`} target="_blank">
               {url}
             </Link>

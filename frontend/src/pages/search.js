@@ -25,7 +25,7 @@ const Page = () => {
   const [all, setAll] = useState([]);
   const [currentList, setCurrentList] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemPerPage, setItemPerPage] = useState(20);
+  const [itemPerPage, setItemPerPage] = useState(5);
   const [isLoading, setIsLoading] = useState(false);
   const [count, setCount] = useState(0);
   const [totalResults, setTotalResults] = useState(0);
@@ -50,7 +50,8 @@ const Page = () => {
   };
 
   useEffect(() => {
-    fetch();
+    search();
+    // console.log(currentPage)
   }, [currentPage]);
 
   function search() {
@@ -58,11 +59,8 @@ const Page = () => {
     setCurrentList((prev) => []);
     setIsLoading(true);
 
-    const tmpCurrentPage = 1;
-    setCurrentPage(1);
     // replace with the real search API
     // fetch the whole data
-
 
     const serch_api = `http://localhost:8081/api/search`;
     axios({
@@ -77,8 +75,7 @@ const Page = () => {
       // Handle the response from backend here
       .then((res) => {
         setTotalResults(res?.data?.total ?? 0);
-        setAll(res?.data?.results ?? []);
-        setSearchResults(res?.data?.results);
+        setSearchResults([...searchResults, ...res?.data?.results]);
         setIsLoading(false);
       })
 
@@ -86,10 +83,6 @@ const Page = () => {
       .catch((err) => {});
   };
 
-  const fetch = () => {
-    const list = all.slice((currentPage - 1) * itemPerPage, currentPage * itemPerPage);
-    setCurrentList((prev) => [...prev, ...list]);
-  };
   return (
     <Fragment>
       <Head>
@@ -141,9 +134,11 @@ const Page = () => {
         </div>}
         {!isLoading && <Container maxWidth="xl">
           {totalResults > 0 && <p>Total Results: {totalResults}</p>}
-          {(searchResults ?? []).map((item) => (
+          {currentPage > 0 && <p>currentPage: {currentPage}</p>}
+          {(searchResults ?? []).map((item, index) => (
             <Item
               key={item.id}
+              index={index}
               id={item.id}
               url={item?.url}
               text={item?.text}
