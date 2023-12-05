@@ -24,6 +24,7 @@
     "@mui/system": "5.11.9",
     "@mui/x-date-pickers": "5.0.19",
     "apexcharts": "3.37.0",
+    "axios": "^1.6.2",
     "date-fns": "2.29.3",
     "formik": "2.2.9",
     "next": "^13.5.6",
@@ -32,6 +33,7 @@
     "react": "18.2.0",
     "react-apexcharts": "1.4.0",
     "react-dom": "18.2.0",
+    "react-loader-spinner": "^5.4.5",
     "simplebar-react": "^3.2.1",
     "yup": "1.0.0"
   },

@@ -14,126 +14,13 @@ import {
 } from "@mui/material";
 import MagnifyingGlassIcon from "@heroicons/react/24/solid/MagnifyingGlassIcon";
 import Item from "../components/Item";
+import { FallingLines } from 'react-loader-spinner';
 import { useState } from "react";
+import axios from "axios";
 
-const mockData = [
-  {
-    id: "1",
-    url: "https://www.espn.com/nba/player/_/id/4594268/anthony-edwards",
-    text: "Edwards sustained a right hip contusion Tuesday against Oklahoma City and will likely be unavailable for a second consecutive matchup Saturday. Assuming he's sidelined, Nickeil Alexander-Walker, Shake Milton and Troy Brown are candidates to see increased run again.",
-  },
-  {
-    id: "2",
-    url: "https://www.espn.com/nba/player/_/id/4594268/anthony-edwards",
-    text: "Edwards sustained a right hip contusion Tuesday against Oklahoma City and will likely be unavailable for a second consecutive matchup Saturday. Assuming he's sidelined, Nickeil Alexander-Walker, Shake Milton and Troy Brown are candidates to see increased run again.",
-  },
-  {
-    id: "3",
-    url: "https://www.espn.com/nba/player/_/id/4594268/anthony-edwards",
-    text: "Edwards sustained a right hip contusion Tuesday against Oklahoma City and will likely be unavailable for a second consecutive matchup Saturday. Assuming he's sidelined, Nickeil Alexander-Walker, Shake Milton and Troy Brown are candidates to see increased run again.",
-  },
-  {
-    id: "4",
-    url: "https://www.espn.com/nba/player/_/id/4594268/anthony-edwards",
-    text: "Edwards sustained a right hip contusion Tuesday against Oklahoma City and will likely be unavailable for a second consecutive matchup Saturday. Assuming he's sidelined, Nickeil Alexander-Walker, Shake Milton and Troy Brown are candidates to see increased run again.",
-  },
-  {
-    id: "5",
-    url: "https://www.espn.com/nba/player/_/id/4594268/anthony-edwards",
-    text: "Edwards sustained a right hip contusion Tuesday against Oklahoma City and will likely be unavailable for a second consecutive matchup Saturday. Assuming he's sidelined, Nickeil Alexander-Walker, Shake Milton and Troy Brown are candidates to see increased run again.",
-  },
-  {
-    id: "6",
-    url: "https://www.espn.com/nba/player/_/id/4594268/anthony-edwards",
-    text: "Edwards sustained a right hip contusion Tuesday against Oklahoma City and will likely be unavailable for a second consecutive matchup Saturday. Assuming he's sidelined, Nickeil Alexander-Walker, Shake Milton and Troy Brown are candidates to see increased run again.",
-  },
-  {
-    id: "7",
-    url: "https://www.espn.com/nba/player/_/id/4594268/anthony-edwards",
-    text: "Edwards sustained a right hip contusion Tuesday against Oklahoma City and will likely be unavailable for a second consecutive matchup Saturday. Assuming he's sidelined, Nickeil Alexander-Walker, Shake Milton and Troy Brown are candidates to see increased run again.",
-  },
-  {
-    id: "8",
-    url: "https://www.espn.com/nba/player/_/id/4594268/anthony-edwards",
-    text: "Edwards sustained a right hip contusion Tuesday against Oklahoma City and will likely be unavailable for a second consecutive matchup Saturday. Assuming he's sidelined, Nickeil Alexander-Walker, Shake Milton and Troy Brown are candidates to see increased run again.",
-  },
-  {
-    id: "9",
-    url: "https://www.espn.com/nba/player/_/id/4594268/anthony-edwards",
-    text: "Edwards sustained a right hip contusion Tuesday against Oklahoma City and will likely be unavailable for a second consecutive matchup Saturday. Assuming he's sidelined, Nickeil Alexander-Walker, Shake Milton and Troy Brown are candidates to see increased run again.",
-  },
-  {
-    id: "10",
-    url: "https://www.espn.com/nba/player/_/id/4594268/anthony-edwards",
-    text: "Edwards sustained a right hip contusion Tuesday against Oklahoma City and will likely be unavailable for a second consecutive matchup Saturday. Assuming he's sidelined, Nickeil Alexander-Walker, Shake Milton and Troy Brown are candidates to see increased run again.",
-  },
-  {
-    id: "11",
-    url: "https://www.espn.com/nba/player/_/id/4594268/anthony-edwards",
-    text: "Edwards sustained a right hip contusion Tuesday against Oklahoma City and will likely be unavailable for a second consecutive matchup Saturday. Assuming he's sidelined, Nickeil Alexander-Walker, Shake Milton and Troy Brown are candidates to see increased run again.",
-  },
-  {
-    id: "12",
-    url: "https://www.espn.com/nba/player/_/id/4594268/anthony-edwards",
-    text: "Edwards sustained a right hip contusion Tuesday against Oklahoma City and will likely be unavailable for a second consecutive matchup Saturday. Assuming he's sidelined, Nickeil Alexander-Walker, Shake Milton and Troy Brown are candidates to see increased run again.",
-  },
-  {
-    id: "13",
-    url: "https://www.espn.com/nba/player/_/id/4594268/anthony-edwards",
-    text: "Edwards sustained a right hip contusion Tuesday against Oklahoma City and will likely be unavailable for a second consecutive matchup Saturday. Assuming he's sidelined, Nickeil Alexander-Walker, Shake Milton and Troy Brown are candidates to see increased run again.",
-  },
-  {
-    id: "14",
-    url: "https://www.espn.com/nba/player/_/id/4594268/anthony-edwards",
-    text: "Edwards sustained a right hip contusion Tuesday against Oklahoma City and will likely be unavailable for a second consecutive matchup Saturday. Assuming he's sidelined, Nickeil Alexander-Walker, Shake Milton and Troy Brown are candidates to see increased run again.",
-  },
-  {
-    id: "15",
-    url: "https://www.espn.com/nba/player/_/id/4594268/anthony-edwards",
-    text: "Edwards sustained a right hip contusion Tuesday against Oklahoma City and will likely be unavailable for a second consecutive matchup Saturday. Assuming he's sidelined, Nickeil Alexander-Walker, Shake Milton and Troy Brown are candidates to see increased run again.",
-  },
-  {
-    id: "16",
-    url: "https://www.espn.com/nba/player/_/id/4594268/anthony-edwards",
-    text: "Edwards sustained a right hip contusion Tuesday against Oklahoma City and will likely be unavailable for a second consecutive matchup Saturday. Assuming he's sidelined, Nickeil Alexander-Walker, Shake Milton and Troy Brown are candidates to see increased run again.",
-  },
-  {
-    id: "17",
-    url: "https://www.espn.com/nba/player/_/id/4594268/anthony-edwards",
-    text: "Edwards sustained a right hip contusion Tuesday against Oklahoma City and will likely be unavailable for a second consecutive matchup Saturday. Assuming he's sidelined, Nickeil Alexander-Walker, Shake Milton and Troy Brown are candidates to see increased run again.",
-  },
-  {
-    id: "18",
-    url: "https://www.espn.com/nba/player/_/id/4594268/anthony-edwards",
-    text: "Edwards sustained a right hip contusion Tuesday against Oklahoma City and will likely be unavailable for a second consecutive matchup Saturday. Assuming he's sidelined, Nickeil Alexander-Walker, Shake Milton and Troy Brown are candidates to see increased run again.",
-  },
-  {
-    id: "19",
-    url: "https://www.espn.com/nba/player/_/id/4594268/anthony-edwards",
-    text: "Edwards sustained a right hip contusion Tuesday against Oklahoma City and will likely be unavailable for a second consecutive matchup Saturday. Assuming he's sidelined, Nickeil Alexander-Walker, Shake Milton and Troy Brown are candidates to see increased run again.",
-  },
-  {
-    id: "20",
-    url: "https://www.espn.com/nba/player/_/id/4594268/anthony-edwards",
-    text: "Edwards sustained a right hip contusion Tuesday against Oklahoma City and will likely be unavailable for a second consecutive matchup Saturday. Assuming he's sidelined, Nickeil Alexander-Walker, Shake Milton and Troy Brown are candidates to see increased run again.",
-  },
-  {
-    id: "21",
-    url: "https://www.espn.com/nba/player/_/id/4594268/anthony-edwards",
-    text: "Edwards sustained a right hip contusion Tuesday against Oklahoma City and will likely be unavailable for a second consecutive matchup Saturday. Assuming he's sidelined, Nickeil Alexander-Walker, Shake Milton and Troy Brown are candidates to see increased run again.",
-  },
-  {
-    id: "22",
-    url: "https://www.espn.com/nba/player/_/id/4594268/anthony-edwards",
-    text: "Edwards sustained a right hip contusion Tuesday against Oklahoma City and will likely be unavailable for a second consecutive matchup Saturday. Assuming he's sidelined, Nickeil Alexander-Walker, Shake Milton and Troy Brown are candidates to see increased run again.",
-  },
-];
-
-const ur = "https://www.espn.com/nba/player/_/id/4594268/anthony-edwards";
-const text =
-  "Edwards sustained a right hip contusion Tuesday against Oklahoma City and will likely be unavailable for a second consecutive matchup Saturday. Assuming he's sidelined, Nickeil Alexander-Walker, Shake Milton and Troy Brown are candidates to see increased run again.";
 
 const Page = () => {
+  const [searchResults, setSearchResults] = useState([]);
   const [searchString, setSearchString] = useState("");
   const [all, setAll] = useState([]);
   const [currentList, setCurrentList] = useState([]);
@@ -141,6 +28,7 @@ const Page = () => {
   const [itemPerPage, setItemPerPage] = useState(5);
   const [isLoading, setIsLoading] = useState(false);
   const [count, setCount] = useState(0);
+  const [totalResults, setTotalResults] = useState(0);
 
   useEffect(() => {
     window.addEventListener("scroll", handleScroll);
@@ -162,27 +50,39 @@ const Page = () => {
   };
 
   useEffect(() => {
-    fetch();
+    search();
+    // console.log(currentPage)
   }, [currentPage]);
 
-  const search = () => {
+  function search() {
     setAll((prev) => []);
     setCurrentList((prev) => []);
+    setIsLoading(true);
 
-    const tmpCurrentPage = 1;
-    setCurrentPage(1);
     // replace with the real search API
     // fetch the whole data
-    const result = mockData;
-    const list = result.slice((tmpCurrentPage - 1) * itemPerPage, tmpCurrentPage * itemPerPage);
-    setAll(result);
-    setCurrentList(list);
+
+    const serch_api = `http://localhost:8081/api/search`;
+    axios({
+      // Endpoint to send files
+      url: serch_api,
+      method: "GET",
+      params: {
+          query: searchString,
+          page: currentPage,
+      }
+    })
+      // Handle the response from backend here
+      .then((res) => {
+        setTotalResults(res?.data?.total ?? 0);
+        setSearchResults([...searchResults, ...res?.data?.results]);
+        setIsLoading(false);
+      })
+
+      // Catch errors if any
+      .catch((err) => {});
   };
 
-  const fetch = () => {
-    const list = all.slice((currentPage - 1) * itemPerPage, currentPage * itemPerPage);
-    setCurrentList((prev) => [...prev, ...list]);
-  };
   return (
     <Fragment>
       <Head>
@@ -224,11 +124,31 @@ const Page = () => {
           </Stack>
         </Container>
 
-        <Container maxWidth="xl">
-          {currentList.map((item) => (
-            <Item key={item.id} id={item.id} url={item.url} text={item.text} />
+        {isLoading && <div style={{color: "black", position: "relative", left: "calc(50% - 80px)", top: "calc(40% - 80px)"}}>
+          <FallingLines
+            color="#6466f1"
+            width="100"
+            visible={true}
+            ariaLabel='falling-lines-loading'
+          />
+        </div>}
+        {!isLoading && <Container maxWidth="xl">
+          {totalResults > 0 && <p>Total Results: {totalResults}</p>}
+          {currentPage > 0 && <p>currentPage: {currentPage}</p>}
+          {(searchResults ?? []).map((item, index) => (
+            <Item
+              key={item.id}
+              index={index}
+              id={item.id}
+              url={item?.url}
+              text={item?.text}
+              pagerank={item?.pagerank}
+              cosineSimiliarty={item?.cosineSimiliarty}
+              score={item?.score}
+            />
           ))}
-        </Container>
+          {(searchResults ?? []).length === 0 && <div>No results, please enter search keywords.</div>}
+        </Container>}
       </Box>
     </Fragment>
   );

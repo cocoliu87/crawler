@@ -394,6 +394,7 @@ class SearchAPI {
 
             // Display results
             res.type("application/json");
+            res.header("Access-Control-Allow-Origin", "*");
             return performSearch(query, page);
         });
 
@@ -404,6 +405,7 @@ class SearchAPI {
 
             // Display results
             res.type("application/json");
+            res.header("Access-Control-Allow-Origin", "*");
             return performSearch(query, page);
         });
     }
