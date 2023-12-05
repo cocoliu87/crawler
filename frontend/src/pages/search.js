@@ -11,13 +11,13 @@ import {
   InputAdornment,
   OutlinedInput,
   SvgIcon,
+  Popover,
 } from "@mui/material";
 import MagnifyingGlassIcon from "@heroicons/react/24/solid/MagnifyingGlassIcon";
 import Item from "../components/Item";
-import { FallingLines } from 'react-loader-spinner';
+import { FallingLines } from "react-loader-spinner";
 import { useState } from "react";
 import axios from "axios";
-
 
 const Page = () => {
   const [searchResults, setSearchResults] = useState([]);
@@ -28,6 +28,8 @@ const Page = () => {
   const [totalResults, setTotalResults] = useState(0);
   const [newSearch, setNewSearch] = useState(0);
 
+  const [history, setHistory] = useState([]);
+
   useEffect(() => {
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
@@ -37,32 +39,30 @@ const Page = () => {
     setSearchString(event.target.value);
   };
 
-
   const onKeyUp = (event) => {
     if (event.charCode === 13) {
       clear();
       setNewSearch(searchString);
     }
-  }
-
+  };
 
   const clear = () => {
     setCurrentPage(1);
     setTotalResults(0);
     setSearchResults([]);
     setNewSearch("");
-  }
+  };
 
   const handleClear = (event) => {
     setSearchString((prev) => "");
     setNewSearch("");
     clear();
-  }
+  };
 
   const handleSearch = () => {
     clear();
     setNewSearch(searchString);
-  }
+  };
 
   const handleScroll = () => {
     const { scrollTop, clientHeight, scrollHeight } = document.documentElement;
@@ -73,20 +73,25 @@ const Page = () => {
 
   useEffect(() => {
     // Debouce the search by 500ms
-    if(searchString != "") {
-        setTimeout(() => search(), 500);
+    if (searchString != "") {
+      setTimeout(() => search(), 500);
     }
   }, [currentPage]);
 
-
   useEffect(() => {
     // Debouce the search by 500ms
-    if(newSearch != "" && searchResults.length == 0) {
-        search();
+    if (newSearch != "" && searchResults.length == 0) {
+      search();
     }
   }, [newSearch, searchResults]);
 
-
+  const openPrevious = (one) => {
+    window.open(
+      one.url,
+      "_blank",
+      "toolbar=yes,scrollbars=yes,resizable=yes,top=500,left=500,width=400,height=400"
+    );
+  };
 
   function search() {
     setIsLoading(true);
@@ -100,9 +105,9 @@ const Page = () => {
       url: serch_api,
       method: "GET",
       params: {
-          query: searchString,
-          page: currentPage,
-      }
+        query: searchString,
+        page: currentPage,
+      },
     })
       // Handle the response from backend here
       .then((res) => {
@@ -114,7 +119,7 @@ const Page = () => {
 
       // Catch errors if any
       .catch((err) => {});
-  };
+  }
 
   return (
     <Fragment>
@@ -155,39 +160,72 @@ const Page = () => {
               <Button variant="contained" style={{ margin: "10px" }} onClick={() => handleSearch()}>
                 Search
               </Button>
-              <Button variant="contained" style={{ margin: "10px", backgroundColor: "red" }} onClick={handleClear}>
+              <Button
+                variant="contained"
+                style={{ margin: "10px", backgroundColor: "red" }}
+                onClick={handleClear}
+              >
                 Clear
               </Button>
             </Card>
           </Stack>
         </Container>
-        {isLoading && <div style={{color: "black", position: "fixed", left: "calc(50% - 80px)", top: "calc(50% - 80px)", backgroundColor: "white",
-          borderRadius: "1rem",
-          boxShadow: "grey 0 0 23px -1px",
-          padding: "1rem"}}
-        >
-          <FallingLines
-            color="#6466f1"
-            width="100"
-            visible={true}
-            ariaLabel='falling-lines-loading'
-          />
-        </div>}
-        {<Container maxWidth="xl">
-          {totalResults > 0 && <p>Total Results: {totalResults}</p>}
-          {(searchResults ?? []).map((item) => (
-            <Item
-              key={item.id}
-              id={item.id}
-              url={item?.url}
-              text={item?.text}
-              pagerank={item?.pagerank}
-              cosineSimiliarty={item?.cosineSimiliarty}
-              score={item?.score}
+
+        {history.length > 0 && (
+          <Container maxWidth="xl">
+            {history.map((one, index) => (
+              <Button
+                style={{ margin: "2px" }}
+                variant="contained"
+                onClick={() => openPrevious(one)}
+              >
+                {`${index + 1} Browsed Page`}{" "}
+              </Button>
+            ))}
+          </Container>
+        )}
+        {isLoading && (
+          <div
+            style={{
+              color: "black",
+              position: "fixed",
+              left: "calc(50% - 80px)",
+              top: "calc(50% - 80px)",
+              backgroundColor: "white",
+              borderRadius: "1rem",
+              boxShadow: "grey 0 0 23px -1px",
+              padding: "1rem",
+            }}
+          >
+            <FallingLines
+              color="#6466f1"
+              width="100"
+              visible={true}
+              ariaLabel="falling-lines-loading"
             />
-          ))}
-          {(searchResults ?? []).length === 0 && <div>No results, please enter search keywords.</div>}
-        </Container>}
+          </div>
+        )}
+        {
+          <Container maxWidth="xl">
+            {totalResults > 0 && <p>Total Results: {totalResults}</p>}
+            {(searchResults ?? []).map((item) => (
+              <Item
+                key={item.id}
+                id={item.id}
+                url={item?.url}
+                text={item?.text}
+                pagerank={item?.pagerank}
+                cosineSimiliarty={item?.cosineSimiliarty}
+                score={item?.score}
+                history={history}
+                setHistory={setHistory}
+              />
+            ))}
+            {(searchResults ?? []).length === 0 && (
+              <div>No results, please enter search keywords.</div>
+            )}
+          </Container>
+        }
       </Box>
     </Fragment>
   );
