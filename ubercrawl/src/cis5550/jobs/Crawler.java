@@ -263,7 +263,9 @@ public class Crawler {
                             }
                         }
 
-                        kvs.putRow("pt-crawl", row);
+                        if (row.get("url") != null && row.get("responseCode") != null && row.get("contentType") != null && row.get("length") != null && row.get("page") != null) {
+                            kvs.putRow("pt-crawl", row);
+                        }
                         kvs.put("crawled-url", hashKey, "url", u);
                         System.gc();
                     } catch (Exception e) {
