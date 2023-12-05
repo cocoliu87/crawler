@@ -83,8 +83,6 @@ class SearchAPI {
             tfidfVector.put(term, tfidf);
         }
 
-        // System.out.println("vectorize("+query+") idfValues: " + idfValues + ", tfidfVector: " + tfidfVector);
-
         return tfidfVector;
     }
 
@@ -196,10 +194,6 @@ class SearchAPI {
                     indexSubset = indexSubset.subList(fromIndex, toIndex + 1);
                 }
 
-
-                System.out.println("\n\n\n\nTotal (fromIndex: " +fromIndex+ ", toINdex: "+toIndex+" ) indexSubset: " + indexSubset.size() + "\n\n\n\n");
-
-
                 // Split it, and for every url, add the hash to our accumulator
                 for(String urlItem : indexSubset) {
                     String decodedUrlItem = Helpers.decode64(urlItem);
@@ -274,9 +268,6 @@ class SearchAPI {
 
         // Lastly, sort by score (highest first, descending order)
         results.sort((r1, r2) -> Double.compare(r2.getScore(), r1.getScore()));
-
-        System.out.println("\n\nResults: " + results.size() + "\n\n");
-        System.out.println("\n\nResults: " + results + "\n\n");
         return results;
     }
 

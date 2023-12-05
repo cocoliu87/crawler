@@ -22,13 +22,11 @@ import axios from "axios";
 const Page = () => {
   const [searchResults, setSearchResults] = useState([]);
   const [searchString, setSearchString] = useState("");
-  const [all, setAll] = useState([]);
-  const [currentList, setCurrentList] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
-  const [itemPerPage, setItemPerPage] = useState(5);
+
   const [isLoading, setIsLoading] = useState(false);
-  const [count, setCount] = useState(0);
   const [totalResults, setTotalResults] = useState(0);
+  const [newSearch, setNewSearch] = useState(0);
 
   useEffect(() => {
     window.addEventListener("scroll", handleScroll);
@@ -36,27 +34,61 @@ const Page = () => {
   }, []);
 
   const searchInputChangeHandler = (event) => {
-    const input = event.target.value;
-    setSearchString(input);
+    setSearchString(event.target.value);
   };
+
+
+  const onKeyUp = (event) => {
+    if (event.charCode === 13) {
+      clear();
+      setNewSearch(searchString);
+    }
+  }
+
+
+  const clear = () => {
+    setCurrentPage(1);
+    setTotalResults(0);
+    setSearchResults([]);
+    setNewSearch("");
+  }
+
+  const handleClear = (event) => {
+    setSearchString((prev) => "");
+    setNewSearch("");
+    clear();
+  }
+
+  const handleSearch = () => {
+    clear();
+    setNewSearch(searchString);
+  }
 
   const handleScroll = () => {
     const { scrollTop, clientHeight, scrollHeight } = document.documentElement;
-    console.log("scrollTop + clientHeight ", scrollTop + clientHeight);
-    console.log("scrollHeight ", scrollHeight);
     if (scrollTop + clientHeight >= scrollHeight - 20) {
-      setCurrentPage((prev) => prev + 1);
+      setCurrentPage((newVal) => newVal + 1);
     }
   };
 
   useEffect(() => {
-    search();
-    // console.log(currentPage)
+    // Debouce the search by 500ms
+    if(searchString != "") {
+        setTimeout(() => search(), 500);
+    }
   }, [currentPage]);
 
+
+  useEffect(() => {
+    // Debouce the search by 500ms
+    if(newSearch != "" && searchResults.length == 0) {
+        search();
+    }
+  }, [newSearch, searchResults]);
+
+
+
   function search() {
-    setAll((prev) => []);
-    setCurrentList((prev) => []);
     setIsLoading(true);
 
     // replace with the real search API
@@ -75,8 +107,9 @@ const Page = () => {
       // Handle the response from backend here
       .then((res) => {
         setTotalResults(res?.data?.total ?? 0);
-        setSearchResults([...searchResults, ...res?.data?.results]);
+        setSearchResults([...(currentPage >= 1 ? searchResults : []), ...res?.data?.results]);
         setIsLoading(false);
+        setNewSearch("");
       })
 
       // Catch errors if any
@@ -104,10 +137,12 @@ const Page = () => {
             </Stack>
             <Card sx={{ p: 2 }}>
               <OutlinedInput
+                value={searchString}
                 defaultValue=""
                 fullWidth
                 placeholder="Type to search information from crawler"
                 onChange={searchInputChangeHandler}
+                onKeyPress={onKeyUp}
                 startAdornment={
                   <InputAdornment position="start">
                     <SvgIcon color="action" fontSize="small">
@@ -117,14 +152,20 @@ const Page = () => {
                 }
                 sx={{ maxWidth: 500 }}
               />
-              <Button variant="contained" style={{ margin: "10px" }} onClick={search}>
+              <Button variant="contained" style={{ margin: "10px" }} onClick={() => handleSearch()}>
                 Search
+              </Button>
+              <Button variant="contained" style={{ margin: "10px", backgroundColor: "red" }} onClick={handleClear}>
+                Clear
               </Button>
             </Card>
           </Stack>
         </Container>
-
-        {isLoading && <div style={{color: "black", position: "relative", left: "calc(50% - 80px)", top: "calc(40% - 80px)"}}>
+        {isLoading && <div style={{color: "black", position: "fixed", left: "calc(50% - 80px)", top: "calc(50% - 80px)", backgroundColor: "white",
+          borderRadius: "1rem",
+          boxShadow: "grey 0 0 23px -1px",
+          padding: "1rem"}}
+        >
           <FallingLines
             color="#6466f1"
             width="100"
@@ -132,13 +173,11 @@ const Page = () => {
             ariaLabel='falling-lines-loading'
           />
         </div>}
-        {!isLoading && <Container maxWidth="xl">
+        {<Container maxWidth="xl">
           {totalResults > 0 && <p>Total Results: {totalResults}</p>}
-          {currentPage > 0 && <p>currentPage: {currentPage}</p>}
-          {(searchResults ?? []).map((item, index) => (
+          {(searchResults ?? []).map((item) => (
             <Item
               key={item.id}
-              index={index}
               id={item.id}
               url={item?.url}
               text={item?.text}

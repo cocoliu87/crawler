@@ -7,7 +7,6 @@ export default function Item({ id, index, url, text, pagerank, score, cosineSimi
       <Card>
         <CardContent>
           <Typography variant="h5" component="div">
-            {index}
             <Link href={`${url}`} target="_blank">
               {url}
             </Link>
