@@ -335,8 +335,7 @@ class SearchAPI {
 
         // Calculate the current array indexes (for pagination)
         int pageNum = 0, fromIndex = 0, toIndex = 0, resultsPerPage = RESULTS_PER_PAGE;
-        System.out.println("==========query: " + query);
-        System.out.println("==========page: " + query);
+    
         if(page != null && !page.isEmpty()) {
             try {
                 pageNum = Math.max(Math.abs(Integer.parseInt(page)), 1) - 1;
