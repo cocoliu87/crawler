@@ -15,14 +15,13 @@ import javax.swing.text.html.parser.ParserDelegator;
 import java.io.IOException;
 import java.io.Reader;
 import java.io.StringReader;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class PageRank {
     static final String tableName = "pt-crawl", rankTableName = "pt-pageranks", delimiter = ",";
     static final double decayFactor = 0.85;
+    static Set<String> visited = new HashSet<>();
     public static void run(cis5550.flame.FlameContext ctx, String[] args) throws Exception {
         double convergence = 0.1;
         int totalProcessed = 0;
@@ -46,7 +45,12 @@ public class PageRank {
             System.out.println("processing links size; "+links.length);
             for (String link: links) {
                 System.out.println("individual link: "+link);
-                hashedLinks.add(Hasher.hash(link));
+                if (visited.contains(link)) {
+			System.out.println("already ranked the link: "+link);
+			continue;
+		}
+		visited.add(link);
+		hashedLinks.add(Hasher.hash(link));
             }
             return new FlamePair(Hasher.hash(url), "1.0,1.0," + String.join(delimiter, hashedLinks));
         });
