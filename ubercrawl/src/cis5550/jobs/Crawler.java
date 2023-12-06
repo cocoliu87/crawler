@@ -238,7 +238,7 @@ public class Crawler {
 //                                new_url_list = extractAndFilterUrls(doc, u);
                             Set<String> raw_url_list = extractAndFilterUrls(doc, u);
 
-                            String delimiter = "\n";
+                            String delimiter = " ";
                             String joinedUrls = String.join(delimiter, raw_url_list);
 
                             // Write this string to the "pt" table

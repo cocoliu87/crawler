@@ -2,8 +2,7 @@
 
 set -o errexit;
 
-JAVA_COMMAND="java -cp ubercrawl/lib/flame.jar:ubercrawl/lib/kvs.jar:ubercrawl/lib/jsoup-1.16.2.jar:ubercrawl/lib/webserver.jar:ubercrawl/lib/ubercrawl.jar";
-EXTERNAL_DRIVE_PATH="/Volumes/Samsung_T5/Development/final/ubercrawl"
+JAVA_COMMAND="java -cp ubercrawl/lib/commons-logging-1.2.jar:ubercrawl/lib/fontbox-2.0.30.jar:ubercrawl/lib/pdfbox-2.0.30.jar:ubercrawl/lib/flame.jar:ubercrawl/lib/kvs.jar:ubercrawl/lib/jsoup-1.16.2.jar:ubercrawl/lib/webserver.jar:ubercrawl/lib/ubercrawl.jar";
 
 
 function __clear_garbage() {
@@ -30,6 +29,7 @@ function __ubercrawl_start_kvs() {
 }
 
 function __ubercrawl_start_flame() {
+    sleep 3;
     echo "Starting: cis5550.flame.Coordinator";
     $JAVA_COMMAND cis5550.flame.Coordinator 9000 localhost:8000 &
     sleep 3;
@@ -132,7 +132,7 @@ function runCrawl() {
     cis5550.flame.FlameSubmit \
     localhost:9000 \
     ubercrawl/lib/ubercrawl.jar \
-    cis5550.jobs.Crawler seed https://en.wikipedia.org/wiki/Main_Page
+    cis5550.jobs.Crawler seed False https://en.wikipedia.org/wiki/Main_Page
 }
 
 
