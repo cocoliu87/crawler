@@ -8,11 +8,20 @@ import cis5550.external.PorterStemmer;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.*;
+import java.util.stream.Stream;
 
 public class Indexer {
+
+    static Set<String> dict = new HashSet<>();
+    static Set<String> stops = new HashSet<>();
     public static void run(FlameContext ctx, String[] args) throws Exception {
         KVSClient kvs = ctx.getKVS();
+
+        // loading filter words to Sets for later use
+        loadWordsToDicts();
 
         List<String> normalizedPages = new ArrayList<>();
 
@@ -63,6 +72,26 @@ public class Indexer {
 
     }
 
+    private static void loadWordsToDicts() throws IOException {
+        try (Stream<String> stream = Files.lines(Paths.get("dict20k.txt"))) {
+            stream.forEach(s -> {
+                if (!s.startsWith("#")) {
+                    System.out.println("word dict is loading -- "+s);
+                    dict.add(s.toLowerCase());
+                }
+            });
+        }
+
+        try (Stream<String> stream = Files.lines(Paths.get("dictStopWords.txt"))) {
+            stream.forEach(s -> {
+                if (!s.startsWith("#")) {
+                    System.out.println("stop words set is loading -- "+s);
+                    stops.add(s.toLowerCase());
+                }
+            });
+        }
+    }
+
     private static Iterator<Row> fetchRowsFromWorker(KVSClient kvs, String tableName, String workerAddress) {
         try {
             return kvs.scan(tableName);
@@ -105,6 +134,8 @@ public class Indexer {
         StringBuilder indexedContent = new StringBuilder();
 
         for (String word : words) {
+            if (!dict.contains(word) || stops.contains(word)) continue;
+
             // Normalize the word to lowercase and skip short words
             word = word.toLowerCase();
             if (word.length() > 2) {
