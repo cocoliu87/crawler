@@ -1,7 +1,7 @@
 package cis5550.jobs;
 
 import cis5550.flame.*;
-import cis5550.tools.Helpers;
+import cis5550.tools.*;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -11,11 +11,13 @@ import java.util.stream.Stream;
 
 public class Indexer {
     static final String tableName = "pt-crawl", indexerTableName = "pt-index";
-    static Set<String> dict = new HashSet<>();
-    static Set<String> stops = new HashSet<>();
+
     public static void run(cis5550.flame.FlameContext ctx, String[] args) throws Exception {
-        loadWordsToDicts();
+        Set<String> dict = loadWordsToDicts("dict20k.txt");
+        Set<String> stops = loadWordsToDicts("dictStopWords.txt");
+        
         System.out.println("processing page from pt-crawl table");
+        
         FlameRDD rdd = ctx.fromTable(tableName, row -> row.get("url") + "@" + row.get("page"));
         System.out.println("processing mapToPair");
         FlamePairRDD pRdd = rdd.mapToPair(s -> {
@@ -24,20 +26,29 @@ public class Indexer {
         }).flatMapToPair(p -> {
             String page = p._2();
             String url = p._1();
+
             System.out.println("processing url: "+url);
-            page = removeAllSpecialCharacters(page);
-            Set<String> words = new HashSet<>(Arrays.asList(page.split("\\W+")));
+            page = removeAllSpecialCharacters(page).toLowerCase();
+            Set<String> words = new HashSet<>();
+            System.out.println("Dict size is "+dict.size()+"; Stop Words size is "+stops.size());
+
+            for (String w: page.split("\\W+")) {
+                if (dict.contains(w) && !stops.contains(w)) {
+                    words.add(w);
+                } else {
+                    System.out.println("not adding word -- "+w);
+                }
+            }
+            
             System.out.println("got words size: "+words.size());
             List<FlamePair> pairs = new ArrayList<>();
             Map<String, List<String>> wordPosMap = posWord(page);
             for (String word: words) {
                 System.out.println("processing word: "+word);
-                if (!dict.contains(word) || stops.contains(word)) continue;
-                word = Helpers.encode64(word);
-                String posUrl = url + ":" + String.join(" ", wordPosMap.get(word));
+                String posUrl = Helpers.encode64(url) + ":" + String.join(" ", wordPosMap.get(word));
                 System.out.println(word + "\n" + posUrl);
-                pairs.add(new FlamePair(word, posUrl));
-                pairs.add(new FlamePair(Helpers.stemWord(word), posUrl));
+                pairs.add(new FlamePair(Hasher.hash(word), posUrl));
+                pairs.add(new FlamePair(Hasher.hash(Helpers.stemWord(word)), posUrl));
             }
             return pairs;
         }).foldByKey("", (s1, s2) -> s1 + (s1.isEmpty()? "":",") + s2);
@@ -54,7 +65,7 @@ public class Indexer {
         Map<String, List<String>> map = new HashMap<>();
         String[] strs = page.split("\\W+");
         for (int i = 0; i < strs.length; i++) {
-            String word = Helpers.encode64(strs[i]);
+            String word = strs[i];
             if (map.containsKey(word)) continue;
             map.computeIfAbsent(word, k -> new ArrayList<>()).add(String.valueOf(i+1));
             for (int j = i+1; j < strs.length; j++) {
@@ -75,23 +86,25 @@ public class Indexer {
         return s.toString();
     }
 
-    private static void loadWordsToDicts() throws IOException {
-        try (Stream<String> stream = Files.lines(Paths.get("dict20k.txt"))) {
+    private static Set<String> loadWordsToDicts(String fileName) throws IOException {
+        Set<String> dict = new HashSet<>();
+        try (Stream<String> stream = Files.lines(Paths.get(fileName))) {
             stream.forEach(s -> {
                 if (!s.startsWith("#")) {
-                    System.out.println("word dict is loading -- "+s);
+                    // System.out.println("word dict is loading -- "+s);
                     dict.add(s.toLowerCase());
                 }
             });
         }
+        return dict;
 
-        try (Stream<String> stream = Files.lines(Paths.get("dictStopWords.txt"))) {
-            stream.forEach(s -> {
-                if (!s.startsWith("#")) {
-                    System.out.println("stop words set is loading -- "+s);
-                    stops.add(s.toLowerCase());
-                }
-            });
-        }
+        // try (Stream<String> stream = Files.lines(Paths.get("dictStopWords.txt"))) {
+        //     stream.forEach(s -> {
+        //         if (!s.startsWith("#")) {
+        //             // System.out.println("stop words set is loading -- "+s);
+        //             stops.add(s.toLowerCase());
+        //         }
+        //     });
+        // }
     }
 }
