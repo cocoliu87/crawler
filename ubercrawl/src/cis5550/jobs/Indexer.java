@@ -5,6 +5,7 @@ import cis5550.kvs.KVSClient;
 import cis5550.kvs.Row;
 import cis5550.tools.Hasher;
 import cis5550.external.PorterStemmer;
+import cis5550.tools.Helpers;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -171,7 +172,7 @@ public class Indexer {
             Set<String> urls = entry.getValue();
 
             // Format: word:url1,url2,url3,...
-            String indexedWord = word + ":" + String.join(",", urls);
+            String indexedWord = word + ":" + String.join(",", encodeUrls(urls));
 
             // Append the indexed word to the indexed content
             indexedContent.append(indexedWord).append(" ");
@@ -179,6 +180,13 @@ public class Indexer {
 
         // Trim the trailing space and return the indexed content
         return indexedContent.toString().trim();
+    }
+
+    private static List<String> encodeUrls(Set<String> urls) {
+        List<String> res = new ArrayList<>();
+        for (String url: urls)
+            res.add(Helpers.encode64(url));
+        return res;
     }
 
     private static String normalizeUrl(String url) {
